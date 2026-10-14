@@ -1,0 +1,4 @@
+:root { --color-background: #f5f7fa; --color-text: #172033; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Arial, sans-serif; background: var(--color-background); color: var(--color-text); }
+main { max-width: 1200px; margin: 0 auto; padding: 48px 24px; }
