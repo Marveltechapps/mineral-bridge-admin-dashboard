@@ -1,0 +1,25 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "design-original",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tests/visual/serve-design.mjs",
+        "5181"
+      ],
+      "port": 5181
+    },
+    {
+      "name": "react-app",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "5190",
+        "--strictPort"
+      ],
+      "port": 5190
+    }
+  ]
+}

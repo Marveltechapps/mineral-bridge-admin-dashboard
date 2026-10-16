@@ -1,0 +1,143 @@
+/*
+ * Design tokens copied verbatim from the original design's :root and
+ * :root[data-theme="dark"] blocks, plus the fixed brand values the design
+ * hard-codes (navy, gold gradient, solid status colours, card shadows).
+ */
+:root {
+  --bg: #f5f6fa;
+  --surf: #fff;
+  --surf2: #fafbfe;
+  --surf3: #f1f2f6;
+  --surf4: #f4f6fd;
+  --line: #e7eaf3;
+  --line2: #e2e5ec;
+  --line3: #cdd6ee;
+  --line4: #c3cae0;
+  --track: #d7dcea;
+  --ink: #1a1f36;
+  --ink2: #6b7290;
+  --ink3: #8890ad;
+  --brandInk: #1e2a5a;
+  --shadow: rgba(20, 26, 46, 0.05);
+  --shadowUp: rgba(20, 26, 46, 0.1);
+  --surfBar: rgba(255, 255, 255, 0.94);
+  --sidebar: linear-gradient(180deg, #1e2a5a 0%, #1a2450 45%, #141a2e 100%);
+  --sidebarLine: rgba(255, 255, 255, 0.09);
+  --tGreen: #dcfce7;
+  --tGreenLine: #bbf7d0;
+  --tGreen2: #f2fcf5;
+  --tBlue: #dbeafe;
+  --tAmber: #fdecd6;
+  --tAmber2: #fff8ee;
+  --tAmber3: #fffcf6;
+  --tRed: #fee2e2;
+  --tRedLine: #fecaca;
+  --tRed2: #fff5f5;
+  --tGold: #fbf1d6;
+  --tViolet: #ede9fe;
+  --okInk: #15803d;
+  --okInk2: #16a34a;
+  --infoInk: #2563eb;
+  --warnInk: #b45309;
+  --errInk: #dc2626;
+  --goldInk: #8a6318;
+  --violetInk: #6d28d9;
+
+  /* Pill tone for "navy" uses --line in light mode and a slightly lighter grey in dark. */
+  --tNavy: var(--line);
+  /* Chart colours (design's ch() helper). */
+  --chGrid: #eef1f8;
+  --chLine: #1e2a5a;
+  --chDot: #fff;
+  --chGold: #c8962f;
+  --chFill: #1e2a5a;
+
+  /* Fixed brand values (identical in both themes in the design). */
+  --brand: #1e2a5a;
+  --brandHover: #141a2e;
+  --brandSoft: #3b4a87;
+  --gold: #f3d27a;
+  --goldGrad: linear-gradient(160deg, #f7dd8e, #c8962f);
+  --goldGradBtn: linear-gradient(135deg, #f7dd8e, #c8962f);
+  --goldBar: linear-gradient(90deg, #f7dd8e, #c8962f);
+  --navyCard: linear-gradient(160deg, #1e2a5a, #141a2e);
+  --authBg: linear-gradient(160deg, #1e2a5a 0%, #1a2450 46%, #141a2e 100%);
+  --okSolid: #16a34a;
+  --okSolidHover: #15803d;
+  --warnSolid: #b45309;
+  --errSolid: #dc2626;
+
+  --shadowCard: 0 4px 14px rgba(20, 26, 46, 0.05);
+  --shadowCardHover: 0 10px 24px rgba(20, 26, 46, 0.1);
+  --shadowNavy: 0 16px 34px rgba(20, 26, 46, 0.2);
+  --shadowBtn: 0 8px 18px rgba(20, 26, 46, 0.22);
+  --shadowBtnOk: 0 8px 18px rgba(21, 128, 61, 0.24);
+  --shadowPop: 0 18px 40px rgba(20, 26, 46, 0.16);
+
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-display: 'Poppins';
+  --font-mono: ui-monospace, Menlo, monospace;
+
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --sidebar-w: 248px;
+  --header-h: 70px;
+  --page-x: 32px;
+
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #1a1c20;
+  --surf: #24272c;
+  --surf2: #2a2e34;
+  --surf3: #31353c;
+  --surf4: #383d45;
+  --line: #3a3f47;
+  --line2: #454b54;
+  --line3: #5a626d;
+  --line4: #6b7480;
+  --track: #454b54;
+  --ink: #f2f3f5;
+  --ink2: #b6bcc4;
+  --ink3: #a8afb9;
+  --brandInk: #c3cbd6;
+  --shadow: rgba(0, 0, 0, 0.45);
+  --shadowUp: rgba(0, 0, 0, 0.55);
+  --surfBar: rgba(36, 39, 44, 0.94);
+  --sidebar: linear-gradient(180deg, #22252a 0%, #1e2125 55%, #17191d 100%);
+  --sidebarLine: rgba(255, 255, 255, 0.08);
+  --tGreen: #1e3326;
+  --tGreenLine: #2b4a36;
+  --tGreen2: #1c2e23;
+  --tBlue: #212e42;
+  --tAmber: #3b2f18;
+  --tAmber2: #332a17;
+  --tAmber3: #2e2715;
+  --tRed: #3b2323;
+  --tRedLine: #4e2e2e;
+  --tRed2: #332020;
+  --tGold: #352c16;
+  --tViolet: #2b2542;
+  --okInk: #7de9a9;
+  --okInk2: #6bdd97;
+  --infoInk: #a8c3fc;
+  --warnInk: #f5c583;
+  --errInk: #fdaeae;
+  --goldInk: #f3d27a;
+  --violetInk: #cfc2fd;
+
+  --tNavy: #383d45;
+  --chGrid: #3a3f47;
+  --chLine: #c3cbd6;
+  --chDot: #24272c;
+  --chGold: #f3d27a;
+  --chFill: #c3cbd6;
+
+  color-scheme: dark;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --page-x: 16px;
+  }
+}

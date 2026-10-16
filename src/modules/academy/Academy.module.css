@@ -1,0 +1,16 @@
+.completionRow {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 64px;
+  gap: 18px;
+  align-items: center;
+}
+
+@media (max-width: 767px) {
+  .completionRow {
+    grid-template-columns: minmax(0, 1fr) 52px;
+    gap: 10px 14px;
+  }
+  .completionRow > :first-child {
+    grid-column: 1 / -1;
+  }
+}

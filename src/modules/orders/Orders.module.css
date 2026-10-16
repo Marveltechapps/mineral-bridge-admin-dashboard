@@ -1,0 +1,136 @@
+.agent {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  background: var(--surf3);
+  color: var(--brandInk);
+  font-size: 10.5px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pager {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line2);
+  background: var(--surf);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.14s ease,
+    box-shadow 0.18s ease;
+}
+
+/* 6-step pipeline tracker and 4-stop route strip keep their desktop
+   proportions and scroll sideways on small screens. */
+.trackScroll {
+  min-width: 0;
+}
+
+.tracker {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.route {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  text-align: center;
+}
+
+.progress {
+  position: absolute;
+  height: 2px;
+  transform-origin: left;
+  animation: mbGrowX 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.intakeBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  background: var(--surf3);
+  border: 1px solid var(--line2);
+  border-radius: 16px;
+}
+
+.intakeCard {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.docChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line2);
+  background: var(--surf2);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.priceBox {
+  background: var(--surf2);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (max-width: 1100px) {
+  .intakeCard {
+    grid-template-columns: 160px minmax(0, 1fr);
+  }
+  .intakeCard > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 767px) {
+  .trackScroll {
+    overflow-x: auto;
+  }
+  .tracker {
+    min-width: 660px;
+  }
+  .route {
+    min-width: 520px;
+  }
+  .intakeBanner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .intakeCard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .intakeCard > :first-child > :first-child {
+    height: 160px !important;
+  }
+}

@@ -1,0 +1,44 @@
+.negGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 24px;
+  margin-top: 18px;
+  align-items: start;
+}
+
+.bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.contract {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--surf3);
+  cursor: pointer;
+  transition: background 0.16s ease;
+}
+
+.contract:hover {
+  background: var(--surf2);
+}
+
+@media (max-width: 1100px) {
+  .bottom {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .bottom > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 767px) {
+  .negGrid,
+  .bottom {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

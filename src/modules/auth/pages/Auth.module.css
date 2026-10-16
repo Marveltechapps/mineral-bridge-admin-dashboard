@@ -1,0 +1,322 @@
+/* ---------- Sign in (split screen) ---------- */
+.split {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) 520px;
+  background: var(--bg);
+}
+
+.brandPanel {
+  background: var(--authBg);
+  padding: 56px 64px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #fff;
+  gap: 32px;
+}
+
+.brandRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logoLg {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: var(--goldGrad);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Poppins';
+  font-size: 15px;
+  font-weight: 800;
+  color: #1a1f36;
+}
+
+.pitch {
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  animation: mbFadeUp 0.55s 0.08s backwards cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.headline {
+  margin: 0;
+  font-family: 'Poppins';
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -1.1px;
+  line-height: 1.18;
+}
+
+.stats {
+  display: flex;
+  gap: 34px;
+  padding-top: 10px;
+  flex-wrap: wrap;
+}
+
+.formPanel {
+  background: var(--surf);
+  padding: 56px 56px 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 26px;
+  border-left: 1px solid var(--line);
+  animation: mbFadeUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.themeBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  border: 1px solid var(--line2);
+  background: var(--surf);
+  color: var(--ink2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.themeBtn:hover {
+  border-color: var(--line3);
+  color: var(--brandInk);
+}
+
+.authInput {
+  height: 46px;
+  border: 1px solid var(--line2);
+  border-radius: 13px;
+  background: var(--surf2);
+  padding: 0 14px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+  outline: none;
+  width: 100%;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.authInput:focus {
+  border-color: var(--infoInk);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 13px;
+  border-radius: 13px;
+  background: var(--tRed);
+  border: 1px solid var(--tRedLine);
+  color: var(--errInk);
+  font-size: 12px;
+  font-weight: 700;
+  animation: mbFadeUp 0.22s ease;
+}
+
+.trust {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+}
+
+.creds {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.credsHead {
+  padding: 10px 14px;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--line);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--ink3);
+}
+
+.cred {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-bottom: 1px solid var(--surf3);
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.cred:hover {
+  background: var(--surf2);
+}
+
+/* ---------- Centered auth cards (OTP / locked / signed out) ---------- */
+.center {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--authBg);
+  padding: 24px 16px;
+}
+
+.centerLight {
+  background: var(--bg);
+}
+
+.otpCard {
+  width: 440px;
+  max-width: 100%;
+  background: var(--surf);
+  border-radius: 22px;
+  padding: 38px 40px;
+  animation: mbFadeUp 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: 0 30px 70px rgba(10, 14, 28, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.codeInput {
+  height: 54px;
+  border: 1px solid var(--line3);
+  border-radius: 14px;
+  background: var(--surf2);
+  padding: 0 16px;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  color: var(--ink);
+  outline: none;
+  width: 100%;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.codeInput:focus {
+  border-color: var(--infoInk);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.locked {
+  width: 420px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  text-align: center;
+  color: #fff;
+  animation: mbFadeUp 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.lockInput {
+  height: 46px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0 14px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #fff;
+  outline: none;
+  text-align: center;
+  width: 100%;
+}
+
+.lockInput:focus {
+  border-color: rgba(247, 221, 142, 0.6);
+}
+
+.outCard {
+  width: 460px;
+  max-width: 100%;
+  background: var(--surf);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 40px;
+  animation: mbFadeUp 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: 0 20px 50px rgba(20, 26, 46, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  text-align: center;
+}
+
+@media (max-width: 1100px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr) 460px;
+  }
+  .brandPanel {
+    padding: 48px 44px;
+  }
+  .formPanel {
+    padding: 48px 40px 36px;
+  }
+}
+
+@media (max-width: 860px) {
+  .split {
+    grid-template-columns: 1fr;
+  }
+  .brandPanel {
+    padding: 32px 24px;
+  }
+  .headline {
+    font-size: 30px;
+    letter-spacing: -0.8px;
+  }
+  .formPanel {
+    border-left: none;
+    border-top: 1px solid var(--line);
+    padding: 32px 24px 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .brandPanel {
+    padding: 28px 16px;
+  }
+  .formPanel {
+    padding: 28px 16px 36px;
+  }
+  .headline {
+    font-size: 26px;
+  }
+  .stats {
+    gap: 22px;
+  }
+  .otpCard {
+    padding: 28px 20px;
+  }
+  .outCard {
+    padding: 28px 20px;
+  }
+}
