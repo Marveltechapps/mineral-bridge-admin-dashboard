@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Mineral Bridge — Operations Console (React)
 
 React + TypeScript implementation of the **Mineral Bridge Admin Dashboard** design
@@ -184,3 +185,24 @@ real identity provider before any production use.
 | Dispute "Linked record" opens the referenced record type (e.g. an auction) | The design always opens the Orders screen |
 | Account menu "My profile" / "Settings & roles" render without icons | Matches the rendered design (its icon references are undefined there) |
 | Some static design toggles (trust device, assay-to-buyers, Tier 3 only) stay display-only | They have no behaviour in the design |
+=======
+# mineral-bridge-admin-dashboard
+
+React + Vite + TypeScript starter following the structure of `selorg-admin-dashboard` in the Selorg Application reference. Includes a small sample feature demonstrating file and folder conventions.
+
+```sh
+npm install
+cp .env.example .env
+npm run dev
+```
+
+Admin: http://localhost:5173. Vite forwards `/api` to `VITE_API_URL`. For deployment, configure the hosting server to proxy `/api` to the service and serve `index.html` for SPA routes.
+
+Features go in `src/modules/<feature>/{pages,components,hooks}`. Services go in `src/services/<feature>/`. Components use `.tsx` and optional `.module.css`; helpers and stores use `.ts`. App providers and routing live in `src/app/`.
+
+Run `npm run typecheck` to check TypeScript. Dependencies must be installed in this repository first.
+
+## Sample files
+
+The sample feature reads `GET /api/samples` from the service. Start the service before using the sample screens. Open `/samples`.
+>>>>>>> origin/sudharsan/dev-min
