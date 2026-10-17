@@ -9,7 +9,16 @@ import { ROUTES } from '@/constants/routes';
 import { consoleActions, useConsole } from '@/store/consoleStore';
 import { BrandMark } from '../components/BrandMark';
 import { sessionActions, useSessionState } from '../hooks/useSession';
-import { STAFF_ACCOUNTS, authenticateDemo, resolveSso } from '@/services/auth';
+import {
+  STAFF_ACCOUNTS,
+  authenticateDemo,
+  formatAuthError,
+  isDemoMode,
+  requestStaffPasswordReset,
+  resolveSso,
+  signInStaff,
+  startStaffSso,
+} from '@/services/auth';
 import styles from './Auth.module.css';
 
 const PITCH_STATS = [
@@ -28,17 +37,62 @@ export default function LoginPage() {
 
   const signIn = (e?: FormEvent) => {
     e?.preventDefault();
-    const res = authenticateDemo(emailRef.current?.value ?? '', passRef.current?.value ?? '');
+    const email = emailRef.current?.value ?? '';
+    const password = passRef.current?.value ?? '';
+    if (!isDemoMode()) {
+      sessionActions.setError(null);
+      void signInStaff(email, password)
+        .then((challenge) => {
+          sessionActions.toLiveOtp(
+            challenge.challengeId,
+            {
+              name: email,
+              role: 'Staff',
+              initials: email.slice(0, 2).toUpperCase(),
+              email,
+              demoPassword: '',
+              scope: 'Operations console',
+            },
+            challenge,
+          );
+          navigate(ROUTES.verify);
+        })
+        .catch((error: unknown) => sessionActions.setError(formatAuthError(error, 'Sign-in failed')));
+      return;
+    }
+    const res = authenticateDemo(email, password);
     if (!res.ok) return sessionActions.setError(res.error);
     sessionActions.toOtp(res.index);
     navigate(ROUTES.verify);
   };
 
   const sso = () => {
-    const res = resolveSso(emailRef.current?.value ?? '');
+    const email = emailRef.current?.value ?? '';
+    if (!isDemoMode()) {
+      sessionActions.setError(null);
+      void startStaffSso(email)
+        .then((result) => {
+          window.location.assign(result.redirectUrl);
+        })
+        .catch((error: unknown) => sessionActions.setError(formatAuthError(error, 'Staff SSO is not available')));
+      return;
+    }
+    const res = resolveSso(email);
     if (!res.ok) return sessionActions.setError(res.error);
     sessionActions.toOtp(res.index);
     navigate(ROUTES.verify);
+  };
+
+  const forgotPassword = () => {
+    if (isDemoMode()) {
+      consoleActions.notify('Password reset link sent to the work email on file');
+      return;
+    }
+    const email = emailRef.current?.value ?? '';
+    sessionActions.setError(null);
+    void requestStaffPasswordReset(email)
+      .then((result) => consoleActions.notify(result.message || 'If that account exists, a reset link is on its way.'))
+      .catch((error: unknown) => sessionActions.setError(formatAuthError(error, 'Could not request a password reset')));
   };
 
   return (
@@ -112,7 +166,7 @@ export default function LoginPage() {
                 Trust this device for 14 days
               </Text>
             </span>
-            <Button variant="link" fs={12} onClick={() => consoleActions.notify('Password reset link sent to the work email on file')}>
+            <Button variant="link" fs={12} onClick={forgotPassword}>
               Forgot password?
             </Button>
           </div>

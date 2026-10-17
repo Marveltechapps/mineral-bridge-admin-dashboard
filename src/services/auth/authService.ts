@@ -1,3 +1,5 @@
+import { apiRequest, isDemoMode, setCsrfToken } from '@/lib/apiClient';
+import { ENDPOINTS } from '@/lib/endpoints';
 import type { StaffAccount } from '@/types/auth';
 
 /**
@@ -27,6 +29,73 @@ export function authenticateDemo(emailRaw: string, passwordRaw: string): AuthRes
   if (STAFF_ACCOUNTS[index].demoPassword !== password) return { ok: false, error: `Incorrect password for ${email}.` };
   return { ok: true, index };
 }
+
+export interface StaffChallenge {
+  challengeId: string;
+  channel?: string;
+  maskedDestination?: string;
+  expiresAt?: string;
+  resendAvailableAt?: string;
+}
+
+export function formatAuthError(error: unknown, fallback: string): string {
+  if (error && typeof error === 'object' && 'fields' in error) {
+    const fields = (error as { fields?: Record<string, string> }).fields;
+    const first = fields && Object.values(fields).find((value) => typeof value === 'string' && value);
+    if (first) return first;
+  }
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
+/** Copy that reports provider acceptance. It does not claim the handset or inbox received the code. */
+export function staffOtpCopy(maskedDestination: string | null, channel: string | null, name: string): string {
+  if (!maskedDestination) return `A 6-digit code was submitted for ${name}. Check the contact on the staff account.`;
+  const where = channel === 'email' ? 'email' : 'phone';
+  return `A 6-digit code was submitted to the ${where} ${maskedDestination}. Delivery is confirmed only when it arrives.`;
+}
+
+export async function signInStaff(email: string, password: string): Promise<StaffChallenge> {
+  return apiRequest<StaffChallenge>(ENDPOINTS.auth.signIn, {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+export async function resendStaffOtp(challengeId: string): Promise<{ maskedDestination?: string; resendAvailableAt?: string }> {
+  return apiRequest(ENDPOINTS.auth.resendOtp, {
+    method: 'POST',
+    body: JSON.stringify({ challengeId }),
+  });
+}
+
+export async function requestStaffPasswordReset(email: string): Promise<{ message: string }> {
+  return apiRequest(ENDPOINTS.auth.passwordReset, {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function startStaffSso(email: string): Promise<{ redirectUrl: string }> {
+  return apiRequest(ENDPOINTS.auth.sso, {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function verifyStaffOtp(challengeId: string, code: string): Promise<{ name: string; role: string }> {
+  const body = await apiRequest<{ me?: { name?: string; role?: { name?: string }; csrfToken?: string } }>(ENDPOINTS.auth.verifyOtp, {
+    method: 'POST',
+    body: JSON.stringify({ challengeId, code: code.replace(/\s/g, '') }),
+  });
+  if (body.me?.csrfToken) setCsrfToken(body.me.csrfToken);
+  return { name: body.me?.name || emailFallback(challengeId), role: body.me?.role?.name || 'Staff' };
+}
+
+function emailFallback(id: string): string {
+  return id;
+}
+
+export { isDemoMode };
 
 /** SSO path: only the email is required (design's ssoAttempt()). */
 export function resolveSso(emailRaw: string): AuthResult {

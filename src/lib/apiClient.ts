@@ -15,6 +15,30 @@ const timeoutMs = (): number => Number(import.meta.env.VITE_API_TIMEOUT_MS) || 1
 /** True when no backend is configured and the console runs on bundled demo data. */
 export const isDemoMode = (): boolean => baseUrl() === '';
 
+const CSRF_KEY = 'mb-admin-csrf';
+
+export function setCsrfToken(token: string | null): void {
+  try {
+    if (!token) window.sessionStorage.removeItem(CSRF_KEY);
+    else window.sessionStorage.setItem(CSRF_KEY, token);
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+export function getCsrfToken(): string | null {
+  try {
+    return window.sessionStorage.getItem(CSRF_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function adminPath(path: string): string {
+  if (path.startsWith('/admin/') || path.startsWith('/samples')) return path;
+  return `/admin/v1${path}`;
+}
+
 /** Codes the client raises itself, for failures that never reached the server. */
 export const CLIENT_ERROR_CODES = {
   /** `VITE_API_BASE_URL` is empty: the console is running on bundled demo data. */
@@ -153,10 +177,17 @@ export async function apiRequest<T>(
     // below cannot be overwritten by it. Spreading it last used to replace the
     // whole merged headers object whenever a caller passed any header of its
     // own, silently dropping Content-Type.
-    res = await fetch(`${baseUrl()}${path}`, {
+    const method = (init.method ?? 'GET').toUpperCase();
+    const csrf = method === 'GET' || method === 'HEAD' ? null : getCsrfToken();
+    res = await fetch(`${baseUrl()}${adminPath(path)}`, {
       ...init,
       credentials: init.credentials ?? 'include',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...headers },
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+        ...headers,
+      },
       signal: controller.signal,
     });
   } catch (error) {

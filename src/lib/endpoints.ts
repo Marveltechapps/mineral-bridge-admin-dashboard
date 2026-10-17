@@ -6,7 +6,7 @@
 export const ENDPOINTS = {
   auth: {
     signIn: '/auth/sign-in',
-    sso: '/auth/sso',
+    sso: '/auth/sso/start',
     verifyOtp: '/auth/otp/verify',
     resendOtp: '/auth/otp/resend',
     unlock: '/auth/unlock',
@@ -30,6 +30,10 @@ export const ENDPOINTS = {
     allocate: (id: string) => `/vault/lots/${id}/allocation`,
   },
   listings: { list: '/listings', detail: (id: string) => `/listings/${id}` },
+  catalog: {
+    hierarchy: '/catalog/hierarchy',
+    form: (slug: string) => `/catalog/forms/${slug}`,
+  },
   pricing: { rates: '/pricing/rates', override: (key: string) => `/pricing/rates/${key}/override`, offers: '/pricing/offers' },
   auctions: { list: '/auctions', detail: (id: string) => `/auctions/${id}`, bids: (id: string) => `/auctions/${id}/bids` },
   lc: { list: '/letters-of-credit', detail: (id: string) => `/letters-of-credit/${id}`, release: (id: string) => `/letters-of-credit/${id}/release` },

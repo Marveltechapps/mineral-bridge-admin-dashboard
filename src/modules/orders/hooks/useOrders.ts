@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { STAGES, AGENT_NAMES } from '@/constants/tones';
 import { useConsole } from '@/store/consoleStore';
-import { ORDERS, ORDER_EXTRA, STAGE_DESC } from '@/services/orders';
+import { isDemoMode } from '@/lib/apiClient';
+import { getOrders, ORDERS, ORDER_EXTRA, STAGE_DESC } from '@/services/orders';
 import type { OrderRow } from '@/types/orders';
 
 export interface LiveOrder extends Omit<OrderRow, 'stage'> {
@@ -12,14 +13,22 @@ export interface LiveOrder extends Omit<OrderRow, 'stage'> {
 /** Orders with the desk's in-session stage advances applied (design: stageAdv). */
 export function useLiveOrders(): LiveOrder[] {
   const adv = useConsole((s) => s.stageAdv);
+  const [remote, setRemote] = useState<OrderRow[] | null>(null);
+  useEffect(() => {
+    if (isDemoMode()) return;
+    const ac = new AbortController();
+    getOrders(ac.signal).then(setRemote).catch(() => setRemote([]));
+    return () => ac.abort();
+  }, [adv]);
+  const source = isDemoMode() ? ORDERS : (remote ?? []);
   return useMemo(
     () =>
-      ORDERS.map((r) => {
+      source.map((r) => {
         const base = STAGES.indexOf(r.stage);
         const bump = adv[r.id] || 0;
         return { ...r, idx: Math.min(5, base + bump), days: bump ? 0 : r.days };
       }),
-    [adv],
+    [adv, source],
   );
 }
 

@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Text } from '@/components/ui/Text';
@@ -6,16 +6,48 @@ import { Toasts } from '@/layouts/AdminLayout/Toasts';
 import { ROUTES } from '@/constants/routes';
 import { consoleActions } from '@/store/consoleStore';
 import { BrandMark } from '../components/BrandMark';
-import { sessionActions, useCurrentAccount } from '../hooks/useSession';
+import { formatAuthError, isDemoMode, resendStaffOtp, staffOtpCopy, verifyStaffOtp } from '@/services/auth';
+import { sessionActions, useCurrentAccount, useSessionState } from '../hooks/useSession';
 import styles from './Auth.module.css';
 
 /** Two-factor step. The demo accepts the pre-filled code (no SMS backend). */
 export default function VerifyPage() {
   const navigate = useNavigate();
   const { account } = useCurrentAccount();
+  const codeRef = useRef<HTMLInputElement>(null);
+  const challengeId = useSessionState((s) => s.challengeId);
+  const authError = useSessionState((s) => s.authError);
+  const maskedDestination = useSessionState((s) => s.maskedDestination);
+  const otpChannel = useSessionState((s) => s.otpChannel);
+  const otpExpiresAt = useSessionState((s) => s.otpExpiresAt);
+  const resendAvailableAt = useSessionState((s) => s.resendAvailableAt);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (isDemoMode()) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const secondsUntil = (iso: string | null) => (iso ? Math.max(0, Math.ceil((new Date(iso).getTime() - now) / 1000)) : 0);
+  const expiryLeft = secondsUntil(otpExpiresAt);
+  const resendLeft = secondsUntil(resendAvailableAt);
+  const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
   const verify = (e?: FormEvent) => {
     e?.preventDefault();
+    if (!isDemoMode()) {
+      const code = codeRef.current?.value ?? '';
+      if (!challengeId) return sessionActions.setError('Request a code again');
+      void verifyStaffOtp(challengeId, code)
+        .then((me) => {
+          sessionActions.verify();
+          consoleActions.notify(`Signed in as ${me.name} · ${me.role}`);
+          navigate(ROUTES.overview);
+        })
+        .catch((error: unknown) => sessionActions.setError(formatAuthError(error, 'That code was not accepted')));
+      return;
+    }
     sessionActions.verify();
     consoleActions.notify(`Signed in as ${account.name} · ${account.role}`);
     navigate(ROUTES.overview);
@@ -30,7 +62,9 @@ export default function VerifyPage() {
             Verify it's you
           </h1>
           <Text size={12.5} weight={600} tone="ink2" lh={1.6}>
-            We sent a 6-digit code to the phone on file for {account.name} — +254 722 •• 4419.
+            {isDemoMode()
+              ? `We sent a 6-digit code to the phone on file for ${account.name} — +254 722 •• 4419.`
+              : staffOtpCopy(maskedDestination, otpChannel, account.name)}
           </Text>
         </div>
         <div style={{ padding: '13px 15px', borderRadius: 14, background: 'var(--surf4)', border: '1px solid var(--line2)', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -44,17 +78,42 @@ export default function VerifyPage() {
             {account.scope}
           </Text>
         </div>
+        {authError ? (
+          <Text size={12.5} weight={700} tone="ink" style={{ color: 'var(--bad, #9b2335)' }}>
+            {authError}
+          </Text>
+        ) : null}
         <label style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <Text size={11} weight={800} ls={0.7} tone="ink2">
             VERIFICATION CODE
           </Text>
-          <input className={styles.codeInput} defaultValue="418 206" inputMode="numeric" autoComplete="one-time-code" />
+          <input ref={codeRef} className={styles.codeInput} defaultValue={isDemoMode() ? '418 206' : ''} inputMode="numeric" autoComplete="one-time-code" />
         </label>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <Text size={11.5} weight={600} tone="ink3">
-            Code expires in 4:52
+            {isDemoMode() ? 'Code expires in 4:52' : expiryLeft > 0 ? `Code expires in ${clock(expiryLeft)}` : 'Code expired'}
           </Text>
-          <Button variant="link" fs={12} onClick={() => consoleActions.notify('New code sent to +254 722 •• 4419')}>
+          <Button
+            variant="link"
+            fs={12}
+            onClick={() => {
+              if (isDemoMode()) {
+                consoleActions.notify('New code sent to +254 722 •• 4419');
+                return;
+              }
+              if (!challengeId || resendLeft > 0) return;
+              void resendStaffOtp(challengeId)
+                .then((info) => {
+                  sessionActions.noteResend(info);
+                  consoleActions.notify(
+                    info.maskedDestination
+                      ? `A new code was submitted to ${info.maskedDestination}. Delivery is not confirmed yet.`
+                      : 'A new code was submitted. Delivery is not confirmed yet.',
+                  );
+                })
+                .catch((error: unknown) => sessionActions.setError(formatAuthError(error, 'Could not resend the code')));
+            }}
+          >
             Resend code
           </Button>
         </div>

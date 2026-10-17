@@ -12,6 +12,7 @@ import { consoleActions, useConsole } from '@/store/consoleStore';
 import { numeric } from '@/lib/collection';
 import { LISTINGS, LISTING_FILTERS, LISTING_STATS, accessTone, unitOf } from '@/services/listings';
 import layout from '@/styles/layout.module.css';
+import { CatalogHierarchyPanel } from '../CatalogHierarchyPanel';
 
 const COLS = '1.25fr 1.5fr 1.1fr 1.1fr 1.1fr 1.05fr 1.15fr';
 
@@ -27,6 +28,7 @@ export default function ListingsPage() {
 
   return (
     <div className={layout.stack16}>
+      <CatalogHierarchyPanel />
       <div className={layout.stats4}>
         {LISTING_STATS.map((s) => (
           <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} />

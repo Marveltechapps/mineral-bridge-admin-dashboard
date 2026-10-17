@@ -8,6 +8,8 @@ import { Eyebrow, Text } from '@/components/ui/Text';
 import { ROUTES } from '@/constants/routes';
 import { STAGES, STAGE_TONES } from '@/constants/tones';
 import { consoleActions } from '@/store/consoleStore';
+import { isDemoMode } from '@/lib/apiClient';
+import { advanceOrder } from '@/services/orders';
 import { orderDetail, useLiveOrders } from '../hooks/useOrders';
 import styles from '../Orders.module.css';
 import layout from '@/styles/layout.module.css';
@@ -23,9 +25,15 @@ export default function OrderDetailPage() {
   const ex = d.ex;
 
   const advance = () => {
-    if (sel.idx >= 5) return consoleActions.notify(`Order ${sel.id} has completed custody transfer`);
-    consoleActions.set((s) => ({ stageAdv: { ...s.stageAdv, [sel.id]: (s.stageAdv[sel.id] || 0) + 1 } }));
-    consoleActions.notify(`${sel.id} advanced to ${STAGES[sel.idx + 1]}`);
+    if (!sel || sel.idx >= 5) return consoleActions.notify(`Order ${sel?.id ?? ''} has completed custody transfer`);
+    const applyLocal = () => {
+      consoleActions.set((s) => ({ stageAdv: { ...s.stageAdv, [sel.id]: (s.stageAdv[sel.id] || 0) + 1 } }));
+      consoleActions.notify(`${sel.id} advanced to ${STAGES[sel.idx + 1]}`);
+    };
+    if (isDemoMode()) return applyLocal();
+    void advanceOrder(sel.id, sel.idx)
+      .then(applyLocal)
+      .catch((error: unknown) => consoleActions.notify(error instanceof Error ? error.message : 'Could not advance the order'));
   };
 
   return (
