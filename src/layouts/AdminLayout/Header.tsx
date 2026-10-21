@@ -5,10 +5,11 @@ import { ROUTES } from '@/constants/routes';
 import { TONE_INK_FIXED } from '@/constants/tones';
 import { sessionActions, useCurrentAccount } from '@/modules/auth/hooks/useSession';
 import { useJump } from '@/hooks/useJump';
+import { useRemoteValue } from '@/hooks/useLiveList';
 import { consoleActions, useConsole } from '@/store/consoleStore';
 import type { Theme } from '@/types/console';
 import styles from './Header.module.css';
-import { BELL_ITEMS } from './notifications';
+import { BELL_ITEMS, loadNotifications } from './notifications';
 
 /** Sticky top bar: page title, global search, theme toggle, notifications and account menu. */
 export function Header({ title, sub }: { title: string; sub: string }) {
@@ -20,10 +21,14 @@ export function Header({ title, sub }: { title: string; sub: string }) {
   const avatarOpen = useConsole((s) => s.avatarOpen);
   const bellOpen = useConsole((s) => s.bellOpen);
   const { account, first } = useCurrentAccount();
+  const notes = useRemoteValue(loadNotifications);
+  const bellItems = notes.demoMode ? BELL_ITEMS : (notes.data?.items ?? []);
+  const bellCount = notes.demoMode ? 9 : (notes.data?.unread ?? 0);
   const dark = theme === 'dark';
 
   const signOut = () => {
     consoleActions.set({ avatarOpen: false, drawer: null, bellOpen: false, editing: {}, query: '' });
+    consoleActions.notify('Session close is recorded in the audit log');
     sessionActions.signOut();
     navigate(ROUTES.signedOut);
   };
@@ -84,12 +89,12 @@ export function Header({ title, sub }: { title: string; sub: string }) {
             <button
               type="button"
               className={styles.iconBtn}
-              aria-label="Notifications, 9 need attention"
+              aria-label={bellCount ? `Notifications, ${bellCount} need attention` : 'Notifications'}
               aria-expanded={bellOpen}
               onClick={() => consoleActions.set({ bellOpen: !bellOpen, avatarOpen: false })}
             >
               <Icon name="bell" size={18} />
-              <span className={styles.bellCount}>9</span>
+              {bellCount > 0 && <span className={styles.bellCount}>{bellCount}</span>}
             </button>
             <div className={styles.avatarWrap}>
               <button
@@ -197,7 +202,12 @@ export function Header({ title, sub }: { title: string; sub: string }) {
                 <Icon name="x" size={14} />
               </button>
             </div>
-            {BELL_ITEMS.map((n) => (
+            {bellItems.length === 0 && (
+              <Text size={12.5} weight={600} tone="ink3">
+                No notifications.
+              </Text>
+            )}
+            {bellItems.map((n) => (
               <button
                 key={n.text}
                 type="button"

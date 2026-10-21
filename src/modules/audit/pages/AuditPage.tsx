@@ -6,6 +6,10 @@ import { Initials } from '@/components/ui/Misc';
 import { Text } from '@/components/ui/Text';
 import { useQueryMatch, useSorted } from '@/hooks/useConsoleData';
 import { useJump } from '@/hooks/useJump';
+import { useRemoteValue } from '@/hooks/useLiveList';
+import { isDemoMode } from '@/lib/apiClient';
+import { formatAuthError } from '@/services/auth';
+import { getAuditPage, queueAuditExport } from '@/services/audit/auditService';
 import { consoleActions, useConsole } from '@/store/consoleStore';
 import layout from '@/styles/layout.module.css';
 
@@ -17,6 +21,7 @@ interface AuditEntry {
   record: string;
   before: string;
   after: string;
+  group?: string;
 }
 
 const LOG: AuditEntry[] = [
@@ -49,14 +54,24 @@ export default function AuditPage() {
   const match = useQueryMatch();
   const jump = useJump();
   const filter = useConsole((s) => s.filters.auditFilter);
-  const filtered = LOG.filter((r) => (filter === 'All actions' || category(r.action) === filter) && match([r.who, r.role, r.action, r.record, r.before, r.after]));
+  const remote = useRemoteValue(getAuditPage);
+  const source = remote.demoMode ? LOG : (remote.data?.rows ?? []);
+  const filtered = source.filter((r) => (filter === 'All actions' || (r.group ?? category(r.action)) === filter) && match([r.who, r.role, r.action, r.record, r.before, r.after]));
   const rows = useSorted(filtered, 'audit', { time: (r) => r.time, who: (r) => r.who, action: (r) => r.action, record: (r) => r.record });
 
   return (
     <div className={layout.stack14}>
       <div className={layout.toolbar}>
         <FilterChips filterKey="auditFilter" options={['All actions', 'Pricing', 'Compliance', 'Orders', 'Vault', 'Roles & access', 'Content']} label="Filter audit log" />
-        <Button variant="secondary" h={36} px={14} r={12} icon="download" onClick={() => consoleActions.notify('Audit log export queued — you will get an email')}>
+        <Button variant="secondary" h={36} px={14} r={12} icon="download" onClick={() => {
+          if (isDemoMode()) {
+            consoleActions.notify('Audit log export queued — you will get an email');
+            return;
+          }
+          void queueAuditExport()
+            .then((message) => consoleActions.notify(message))
+            .catch((err: unknown) => consoleActions.notify(formatAuthError(err, 'The audit export was not queued.')));
+        }}>
           Export log
         </Button>
       </div>
@@ -116,7 +131,7 @@ export default function AuditPage() {
             </DataRow>
           ))}
         </DataTable>
-        <TableFooter>Showing {filtered.length} of 41,882 logged actions · retained 7 years</TableFooter>
+        <TableFooter>Showing {filtered.length} of {remote.demoMode ? '41,882' : (remote.data?.total ?? filtered.length).toLocaleString('en-US')} logged actions · retained 7 years</TableFooter>
         {rows.length === 0 && <TableEmpty>No log entries match this filter or search.</TableEmpty>}
       </Card>
     </div>

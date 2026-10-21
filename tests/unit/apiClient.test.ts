@@ -97,7 +97,7 @@ describe('request shape', () => {
 
     await apiRequest('/orders');
 
-    expect(calls[0].url).toBe(`${BASE}/orders`);
+    expect(calls[0].url).toBe(`${BASE}/admin/v1/orders`);
     expect(headersOf(calls[0])['Content-Type']).toBe('application/json');
     expect(headersOf(calls[0]).Accept).toBe('application/json');
     expect(calls[0].init.credentials).toBe('include');

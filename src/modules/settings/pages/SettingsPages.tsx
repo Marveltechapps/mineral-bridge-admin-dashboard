@@ -1,6 +1,7 @@
 import type { KeyboardEvent, ReactNode } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Card } from '@/components/ui/Card';
+import { Loader } from '@/components/ui/Loader';
 import { DataRow, DataTable, HeadCell } from '@/components/ui/DataTable';
 import { EditGateActions } from '@/components/ui/EditGateActions';
 import { EditingBadge } from '@/components/ui/EditingBadge';
@@ -11,7 +12,10 @@ import { Toggle } from '@/components/ui/Toggle';
 import { ROUTES } from '@/constants/routes';
 import { useEditGate } from '@/hooks/useEditGate';
 import { consoleActions, useConsole } from '@/store/consoleStore';
-import { COUNTRIES, MODULES, PLATFORM_SETTINGS, ROLES } from '@/services/settings';
+import { useRemoteValue } from '@/hooks/useLiveList';
+import { apiRequest } from '@/lib/apiClient';
+import { ENDPOINTS } from '@/lib/endpoints';
+import { COUNTRIES, MODULES, PLATFORM_SETTINGS, ROLES, getBtcCountries, getPlatformSettings, getRoles, saveBtcCountries, savePlatformSettings } from '@/services/settings';
 import styles from '../Settings.module.css';
 import layout from '@/styles/layout.module.css';
 
@@ -45,8 +49,31 @@ const LEVEL_TEXT = ['no access', 'view only', 'edit'];
 
 /** Role × module permission matrix; cells cycle none → view → edit while editing. */
 export function RolesPage() {
-  const gate = useEditGate('roles', 'Role permissions saved — change written to the audit log');
+  const remote = useRemoteValue(getRoles);
+  const modules = remote.demoMode ? [...MODULES] : (remote.data?.modules ?? []);
+  const roles = remote.demoMode ? ROLES.map((role) => ({ id: role.name, ...role })) : (remote.data?.roles ?? []);
   const access = useConsole((s) => s.access);
+  const gate = useEditGate('roles', 'Role permissions saved — change written to the audit log', async () => {
+    const current = access;
+    const levels = ['none', 'view', 'edit'] as const;
+    const changes = roles.flatMap((role) =>
+      role.access.flatMap((level, index) => {
+        const next = current[`acc|${role.name}|${modules[index]}`];
+        if (next === undefined || next === level) return [];
+        return [{ roleId: role.id, module: modules[index], access: levels[next] ?? 'none' }];
+      }),
+    );
+    if (!changes.length) return 'No permission changes to save';
+    const saved = await apiRequest<{ message?: string }>(`${ENDPOINTS.settings.roles}/permissions`, {
+      method: 'PUT',
+      headers: remote.data?.etag ? { 'If-Match': remote.data.etag } : {},
+      body: JSON.stringify({ changes }),
+    });
+    remote.reload();
+    return saved.message || 'Role permissions saved';
+  });
+  if (!remote.demoMode && remote.loading) return <Loader label="Loading roles" />;
+  if (!remote.demoMode && remote.error) return <p role="alert">{remote.error}</p>;
 
   return (
     <Card clip>
@@ -66,7 +93,7 @@ export function RolesPage() {
       </div>
       <DataTable
         label="Role permissions"
-        cols="250px repeat(9,minmax(0,1fr))"
+        cols={`250px repeat(${modules.length},minmax(0,1fr))`}
         gap={8}
         minWidth={980}
         headFs={9.5}
@@ -74,7 +101,7 @@ export function RolesPage() {
         header={
           <>
             <HeadCell>ROLE</HeadCell>
-            {MODULES.map((m) => (
+            {modules.map((m) => (
               <HeadCell key={m} align="center">
                 {m}
               </HeadCell>
@@ -82,7 +109,7 @@ export function RolesPage() {
           </>
         }
       >
-        {ROLES.map((r) => (
+        {roles.map((r) => (
           <DataRow key={r.name}>
             <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
               <Text size={12.5} weight={700} tone="ink">
@@ -93,7 +120,7 @@ export function RolesPage() {
               </Text>
             </span>
             {r.access.map((l0, i) => {
-              const key = `acc|${r.name}|${MODULES[i]}`;
+              const key = `acc|${r.name}|${modules[i]}`;
               const l = access[key] === undefined ? l0 : access[key];
               const cycle = () => {
                 if (!gate.on) {
@@ -102,14 +129,14 @@ export function RolesPage() {
                 }
                 const next = (l + 1) % 3;
                 consoleActions.set((s) => ({ access: { ...s.access, [key]: next } }));
-                consoleActions.notify(`${r.name} · ${MODULES[i]} set to ${LEVEL_TEXT[next]}`);
+                consoleActions.notify(`${r.name} · ${modules[i]} set to ${LEVEL_TEXT[next]}`);
               };
               return (
                 <span
                   key={key}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${r.name}, ${MODULES[i]}: ${LEVEL_TEXT[l]}`}
+                  aria-label={`${r.name}, ${modules[i]}: ${LEVEL_TEXT[l]}`}
                   aria-disabled={!gate.on}
                   className={styles.cell}
                   data-level={l}
@@ -134,7 +161,26 @@ export function RolesPage() {
 }
 
 export function PlatformPage() {
-  const gate = useEditGate('platform', 'Platform configuration saved');
+  const remote = useRemoteValue(getPlatformSettings);
+  const rows = remote.demoMode ? PLATFORM_SETTINGS : (remote.data?.rows ?? []);
+  const etag = remote.data?.etag ?? '';
+  const gate = useEditGate('platform', 'Platform configuration saved', async () => {
+    const values: Record<string, number> = {};
+    for (const row of rows) {
+      const key = 'key' in row && typeof row.key === 'string' ? row.key : '';
+      if (!key) continue;
+      const input = document.getElementById(`cfg-${row.label}`) as HTMLInputElement | null;
+      const parsed = Number(String(input?.value ?? row.value).replace(/[^0-9.-]/g, ''));
+      if (!Number.isFinite(parsed)) throw new Error(`${row.label} needs a number`);
+      values[key] = parsed;
+    }
+    if (!Object.keys(values).length) throw new Error('No platform settings to save');
+    const message = await savePlatformSettings(etag, values);
+    remote.reload();
+    return message;
+  });
+  if (!remote.demoMode && remote.loading) return <Loader label="Loading platform settings" />;
+  if (!remote.demoMode && remote.error) return <p role="alert">{remote.error}</p>;
   return (
     <Card clip>
       <div className={styles.head} style={{ padding: '15px 22px', borderBottom: '1px solid var(--line)', background: 'var(--surf2)' }}>
@@ -148,7 +194,7 @@ export function PlatformPage() {
           <EditGateActions on={gate.on} onEdit={gate.edit} onCancel={gate.cancel} onSave={gate.save} editLabel="Edit configuration" />
         </span>
       </div>
-      {PLATFORM_SETTINGS.map((s) => (
+      {rows.map((s) => (
         <div key={s.label} className={styles.setting}>
           <label htmlFor={`cfg-${s.label}`} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Text size={13} weight={700} tone="ink">
@@ -166,15 +212,28 @@ export function PlatformPage() {
 }
 
 export function BitcoinPage() {
-  const gate = useEditGate('btc', 'Bitcoin payment settings saved — change written to the audit log');
+  const remote = useRemoteValue(getBtcCountries);
+  const countries = remote.demoMode ? COUNTRIES : (remote.data?.rows ?? []);
+  const etag = remote.data?.etag ?? '';
   const btcOn = useConsole((s) => s.btcOn);
-  const rows = COUNTRIES.map((c) => {
+  const gate = useEditGate('btc', 'Bitcoin payment settings saved — change written to the audit log', async () => {
+    const changes = countries
+      .filter((country) => country.reg !== 'Prohibited' && btcOn[country.code] !== undefined && btcOn[country.code] !== country.enabled)
+      .map((country) => ({ code: country.code, enabled: Boolean(btcOn[country.code]) }));
+    if (!changes.length) return 'No Bitcoin payment changes to save';
+    const message = await saveBtcCountries(etag, changes);
+    remote.reload();
+    return message;
+  });
+  const rows = countries.map((c) => {
     const blocked = c.reg === 'Prohibited';
     const v = blocked ? false : btcOn[c.code] === undefined ? c.enabled : btcOn[c.code];
     return { ...c, blocked, v };
   });
   const enabledCount = rows.filter((r) => !r.blocked && r.v).length;
   const regTone = (reg: string) => (reg.indexOf('Permitted') === 0 ? 'green' : reg === 'Prohibited' ? 'red' : reg === 'Restricted' ? 'amber' : 'blue');
+  if (!remote.demoMode && remote.loading) return <Loader label="Loading Bitcoin payment settings" />;
+  if (!remote.demoMode && remote.error) return <p role="alert">{remote.error}</p>;
 
   return (
     <Card clip>
@@ -187,7 +246,7 @@ export function BitcoinPage() {
             <EditingBadge show={gate.on} />
           </span>
           <Text size={11.5} weight={600} tone="ink3">
-            {enabledCount} of {COUNTRIES.length} countries enabled for Bitcoin settlement · settlement only runs where the counterparty's country is enabled
+            {enabledCount} of {countries.length} countries enabled for Bitcoin settlement · settlement only runs where the counterparty's country is enabled
           </Text>
         </span>
         <span style={{ display: 'flex', gap: 8 }}>

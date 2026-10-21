@@ -9,10 +9,12 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Text } from '@/components/ui/Text';
 import { ROUTES } from '@/constants/routes';
 import { useQueryMatch, useSorted } from '@/hooks/useConsoleData';
+import { useLiveList, useRemoteValue } from '@/hooks/useLiveList';
+import { Loader } from '@/components/ui/Loader';
 import { consoleActions, useConsole } from '@/store/consoleStore';
 import { usd } from '@/lib/collection';
 import { LcDetailPanel } from '../components/LcDetailPanel';
-import { LCS, LC_FILTERS, LC_STAGES, LC_STAGE_TONE, LC_STATS, isExpiring } from '@/services/lc';
+import { LCS, LC_FILTERS, LC_STAGES, LC_STAGE_TONE, LC_STATS, getLcStats, getLettersOfCredit, isExpiring } from '@/services/lc';
 import layout from '@/styles/layout.module.css';
 
 const COLS = '1.05fr 1.9fr 1.55fr .95fr 1.05fr 1.15fr 1.1fr';
@@ -22,10 +24,12 @@ export default function LcPage() {
   const match = useQueryMatch();
   const filter = useConsole((s) => s.filters.lcFilter);
   const selId = useConsole((s) => s.lcSel);
-  const sel = LCS.find((l) => l.id === selId);
+  const live = useLiveList(getLettersOfCredit, LCS);
+  const stats = useRemoteValue(getLcStats);
+  const sel = live.rows.find((l) => l.id === selId);
 
   const rows = useSorted(
-    LCS.filter((l) => {
+    live.rows.filter((l) => {
       const pass = filter === 'All LCs' || l.status === filter || (filter === 'Expiring ≤ 7 days' && isExpiring(l)) || (filter === 'With discrepancies' && l.discrepancies.length > 0);
       return pass && match([l.id, l.applicant, l.beneficiary, l.goods, l.bank, l.status, l.order]);
     }),
@@ -41,8 +45,10 @@ export default function LcPage() {
 
   return (
     <div className={layout.stack16}>
+      {live.loading && <Loader label="Loading letters of credit" />}
+      {(live.error || (!stats.demoMode && stats.error)) && <p role="alert">{live.error || stats.error}</p>}
       <div className={layout.stats4}>
-        {LC_STATS.map((s) => (
+        {(stats.demoMode ? LC_STATS : (stats.data ?? [])).map((s) => (
           <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} />
         ))}
       </div>
@@ -157,7 +163,7 @@ export default function LcPage() {
         </DataTable>
         {rows.length === 0 && <TableEmpty>No letters of credit match this filter or search.</TableEmpty>}
         <TableFooter>
-          Showing {rows.length} of {LCS.length} letters of credit · rows highlighted amber expire within 7 days
+          Showing {rows.length} of {live.rows.length} letters of credit · rows highlighted amber expire within 7 days
         </TableFooter>
       </Card>
     </div>

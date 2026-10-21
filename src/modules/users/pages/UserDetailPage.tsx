@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BackButton, Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -6,8 +7,13 @@ import { DocRow, KeyValue } from '@/components/ui/Misc';
 import { Pill } from '@/components/ui/Pill';
 import { Eyebrow, Text } from '@/components/ui/Text';
 import { ROUTES } from '@/constants/routes';
+import { Loader } from '@/components/ui/Loader';
+import { apiRequest, isDemoMode } from '@/lib/apiClient';
+import { ENDPOINTS } from '@/lib/endpoints';
+import { asRecord, fetchAllPages, formatDay, moneyLabel, qtyLabel, statusLabel, textOf } from '@/lib/wire';
 import { consoleActions } from '@/store/consoleStore';
 import { ACCOUNTS, USER_ORDERS, USER_TICKETS, initialsOfName, userDocuments } from '@/services/users';
+import { formatAuthError } from '@/services/auth';
 import styles from '../Users.module.css';
 import layout from '@/styles/layout.module.css';
 
@@ -16,9 +22,74 @@ const KV_K = 'rgba(255,255,255,.6)';
 export default function UserDetailPage() {
   const { userId } = useParams();
   const navigate = useNavigate();
-  const su = ACCOUNTS.find((u) => u.name === userId) ?? ACCOUNTS[0];
-  const lifetime = (su.orders * 0.46).toFixed(2);
-  const phone = `+254 7${10 + su.name.length} ${100 + su.orders} ${100 + su.org.length}`;
+  const demo = isDemoMode();
+  const demoAccount = ACCOUNTS.find((u) => u.name === userId || u.id === userId) ?? ACCOUNTS[0];
+  const [live, setLive] = useState<{
+    name: string;
+    org: string;
+    email: string;
+    tier: number;
+    status: string;
+    joined: string;
+    phone: string;
+    orders: number;
+    lifetime: string;
+    disputes: string;
+    orderRows: Array<{ id: string; mineral: string; qty: string; stage: string; tone: 'blue'; date: string }>;
+    tickets: Array<{ id: string; subject: string; status: string; date: string }>;
+    docs: Array<{ name: string; exp: string; status: string; tone: 'green' | 'blue' | 'amber' | 'red' }>;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (demo || !userId) return;
+    const ac = new AbortController();
+    Promise.all([
+      apiRequest<Record<string, unknown>>(ENDPOINTS.users.detail(userId), { signal: ac.signal }),
+      fetchAllPages<Record<string, unknown>>(ENDPOINTS.users.detail(userId) + '/orders', ac.signal),
+      fetchAllPages<Record<string, unknown>>(ENDPOINTS.users.detail(userId) + '/tickets', ac.signal),
+      fetchAllPages<Record<string, unknown>>(ENDPOINTS.users.detail(userId) + '/documents', ac.signal),
+    ])
+      .then(([profile, orders, tickets, docs]) => {
+        if (ac.signal.aborted) return;
+        setLive({
+          name: textOf(profile.name),
+          org: textOf(profile.org),
+          email: textOf(profile.email),
+          tier: Number(profile.tier ?? 1),
+          status: statusLabel(profile.status),
+          joined: formatDay(profile.joinedAt),
+          phone: textOf(profile.phone) || 'Not on file',
+          orders: Number(profile.orderCount ?? orders.length),
+          lifetime: moneyLabel(profile.lifetimeValue),
+          disputes: Number(profile.openDisputes ?? 0) ? `${profile.openDisputes} open` : 'None',
+          orderRows: orders.map((row) => ({
+            id: textOf(row.id),
+            mineral: textOf(asRecord(row.mineral)?.name ?? row.mineral),
+            qty: qtyLabel(row.quantity),
+            stage: statusLabel(row.stage),
+            tone: 'blue' as const,
+            date: formatDay(row.openedAt),
+          })),
+          tickets: tickets.map((row) => ({ id: textOf(row.id), subject: textOf(row.subject), status: statusLabel(row.status), date: formatDay(row.openedAt) })),
+          docs: docs.map((row) => ({ name: textOf(row.type), exp: formatDay(row.expiresOn) || textOf(row.ref), status: statusLabel(row.status), tone: 'blue' as const })),
+        });
+      })
+      .catch((err: unknown) => {
+        if (!ac.signal.aborted) setError(formatAuthError(err, 'Could not load this account.'));
+      });
+    return () => ac.abort();
+  }, [demo, userId]);
+  if (!demo && !live && !error) return <Loader label="Loading account" />;
+  if (!demo && (error || !live)) return <p role="alert">{error || 'Account not found.'}</p>;
+  const su = demo
+    ? demoAccount
+    : { name: live!.name, org: live!.org, email: live!.email, tier: live!.tier as 1 | 2 | 3, status: live!.status, orders: live!.orders, joined: live!.joined };
+  const lifetime = demo ? `$${(su.orders * 0.46).toFixed(2)}M` : live!.lifetime;
+  const phone = demo ? `+254 7${10 + su.name.length} ${100 + su.orders} ${100 + su.org.length}` : live!.phone;
+  const orderRows = demo ? USER_ORDERS : live!.orderRows;
+  const ticketRows = demo ? USER_TICKETS : live!.tickets;
+  const documents = demo ? userDocuments(demoAccount) : live!.docs;
+  const disputeLine = demo ? (su.status === 'Rejected' ? '1 open' : 'None') : live!.disputes;
   const statusStyle = {
     bg: su.status === 'Verified' ? 'rgba(22,163,74,.18)' : su.status === 'Rejected' ? 'rgba(220,38,38,.2)' : 'rgba(255,255,255,.14)',
     color: su.status === 'Verified' ? '#7FE3A1' : su.status === 'Rejected' ? '#FFB4B4' : '#fff',
@@ -35,7 +106,7 @@ export default function UserDetailPage() {
                 Order history
               </Text>
               <Text size={11} weight={700} ls={0.8} tone="ink3">
-                {su.orders} ORDERS · ${lifetime}M LIFETIME VALUE
+                {su.orders} ORDERS · {lifetime} LIFETIME VALUE
               </Text>
             </div>
             <DataTable
@@ -54,7 +125,7 @@ export default function UserDetailPage() {
                 </>
               }
             >
-              {USER_ORDERS.map((o) => (
+              {orderRows.map((o) => (
                 <DataRow key={o.id}>
                   <Text size={12.5} weight={800} tone="brand">
                     {o.id}
@@ -87,7 +158,7 @@ export default function UserDetailPage() {
               rowPad="12px 22px"
               header={null}
             >
-              {USER_TICKETS.map((t) => (
+              {ticketRows.map((t) => (
                 <DataRow key={t.id}>
                   <Text size={12.5} weight={800} tone="brand">
                     {t.id}
@@ -150,7 +221,7 @@ export default function UserDetailPage() {
               <KeyValue k="Organisation" v={su.org} kColor={KV_K} vTone="inherit" />
               <KeyValue k="Phone" v={phone} kColor={KV_K} vTone="inherit" />
               <KeyValue k="Joined" v={su.joined} kColor={KV_K} vTone="inherit" />
-              <KeyValue k="Disputes" v={su.status === 'Rejected' ? '1 open' : 'None'} kColor={KV_K} vTone="inherit" />
+              <KeyValue k="Disputes" v={disputeLine} kColor={KV_K} vTone="inherit" />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 18 }}>
               <Button
@@ -159,6 +230,10 @@ export default function UserDetailPage() {
                 r={13}
                 gap={8}
                 onClick={() => {
+                  if (!demo) {
+                    navigate(ROUTES.usersTiers);
+                    return;
+                  }
                   consoleActions.notify(`Tier change sent to compliance for ${su.name}`);
                   navigate(ROUTES.verification);
                 }}
@@ -177,6 +252,15 @@ export default function UserDetailPage() {
                     cta: 'Send message',
                     done: `Message sent to ${su.name}`,
                     draft: 'Message saved as a draft',
+                    onSubmit: demo
+                      ? undefined
+                      : async (values, draft) => {
+                          const body = await apiRequest<{ message?: string }>(ENDPOINTS.users.message(userId || su.name), {
+                            method: 'POST',
+                            body: JSON.stringify({ subject: values.SUBJECT, body: values.MESSAGE, channels: ['in_app'], draft }),
+                          });
+                          return body.message || (draft ? 'Message saved as a draft' : `Message sent to ${su.name}`);
+                        },
                   })
                 }
               >
@@ -202,7 +286,7 @@ export default function UserDetailPage() {
               </Button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 13 }}>
-              {userDocuments(su).map((d, i) => (
+              {documents.map((d, i) => (
                 <DocRow key={i} name={d.name} sub={d.exp} trailing={<Pill tone={d.tone}>{d.status}</Pill>} />
               ))}
             </div>

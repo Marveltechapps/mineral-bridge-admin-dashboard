@@ -1,5 +1,6 @@
-import { apiRequest, apiRequestOrDemo, isDemoMode } from '@/lib/apiClient';
+import { apiRequest, isDemoMode } from '@/lib/apiClient';
 import { ENDPOINTS } from '@/lib/endpoints';
+import { fetchAllPages, moneyLabel, partyName, qtyLabel, textOf, unitPriceLabel } from '@/lib/wire';
 import { STAGES, type Stage } from '@/constants/tones';
 import type { IntakeItem, OrderRow } from '@/types/orders';
 import { INTAKE, ORDERS } from './ordersData';
@@ -52,6 +53,18 @@ export function advanceOrder(id: string, stageIndex: number): Promise<unknown> {
   });
 }
 
-export function getIntakeQueue(signal?: AbortSignal): Promise<IntakeItem[]> {
-  return apiRequestOrDemo(ENDPOINTS.orders.intake, INTAKE, { signal });
+export async function getIntakeQueue(signal?: AbortSignal): Promise<IntakeItem[]> {
+  if (isDemoMode()) return INTAKE;
+  const rows = await fetchAllPages<Record<string, unknown>>(ENDPOINTS.orders.intake, signal);
+  return rows.map((row) => ({
+    id: textOf(row.id),
+    party: partyName(row.party),
+    mineral: textOf(asRecord(row.mineral)?.name ?? row.mineral),
+    qty: qtyLabel(row.quantity),
+    grade: textOf(row.grade),
+    rate: unitPriceLabel(row.liveRate),
+    suggested: moneyLabel(row.suggested),
+    docs: Array.isArray(row.documents) ? row.documents.map((doc) => textOf(asRecord(doc)?.name)) : [],
+    photos: `${Number(row.photoCount ?? 0)} photos`,
+  }));
 }

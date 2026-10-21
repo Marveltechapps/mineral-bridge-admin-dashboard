@@ -9,7 +9,8 @@ import { ROUTES } from '@/constants/routes';
 import { useConsoleNav } from '@/hooks/useConsoleNav';
 import { useQueryMatch } from '@/hooks/useConsoleData';
 import { consoleActions } from '@/store/consoleStore';
-import { INTAKE } from '@/services/orders';
+import { useLiveList } from '@/hooks/useLiveList';
+import { INTAKE, getIntakeQueue } from '@/services/orders';
 import styles from '../Orders.module.css';
 import layout from '@/styles/layout.module.css';
 
@@ -17,7 +18,8 @@ import layout from '@/styles/layout.module.css';
 export default function IntakePage() {
   const go = useConsoleNav();
   const match = useQueryMatch();
-  const cards = INTAKE.filter((c) => match([c.id, c.party, c.mineral]));
+  const live = useLiveList(getIntakeQueue, INTAKE);
+  const cards = live.rows.filter((c) => match([c.id, c.party, c.mineral]));
 
   return (
     <div className={layout.stack14}>

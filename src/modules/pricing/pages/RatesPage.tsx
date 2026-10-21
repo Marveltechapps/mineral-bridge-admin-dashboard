@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from 'react';
+import { useCallback, useMemo, type CSSProperties } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Chip, FilterChips } from '@/components/ui/Chip';
 import { DataRow, DataTable, HeadCell, SortHead, TableEmpty } from '@/components/ui/DataTable';
@@ -11,7 +11,13 @@ import { consoleActions, useConsole } from '@/store/consoleStore';
 import type { RateRange } from '@/types/console';
 import { numeric } from '@/lib/collection';
 import { RateChart } from '../components/RateChart';
-import { RANGE_AXIS, RANGE_LABEL, RATES, rateHistory, rateKey } from '@/services/pricing';
+import { useLiveList } from '@/hooks/useLiveList';
+import { Loader } from '@/components/ui/Loader';
+import { apiRequest, isDemoMode } from '@/lib/apiClient';
+import { ENDPOINTS } from '@/lib/endpoints';
+import { useRemoteValue } from '@/hooks/useLiveList';
+import { formatAuthError } from '@/services/auth';
+import { RANGE_AXIS, RANGE_LABEL, RATES, getRateHistory, getRates, rateHistory, rateKey } from '@/services/pricing';
 import type { Rate } from '@/types/pricing';
 import layout from '@/styles/layout.module.css';
 import pricing from '../Pricing.module.css';
@@ -31,13 +37,28 @@ export default function RatesPage() {
     return { ...r, source: flipped ? 'Manual override' : 'Market feed', updated: 'just now' };
   };
 
+  const live = useLiveList(getRates, RATES);
   const rows = useSorted(
-    RATES.map(effective).filter((r) => (source === 'All sources' || r.source === source) && match([r.mineral, r.grade, r.source])),
+    live.rows.map(effective).filter((r) => (source === 'All sources' || r.source === source) && match([r.mineral, r.grade, r.source])),
     'pricing',
     { mineral: (r) => r.mineral, buy: (r) => numeric(r.buy), sell: (r) => numeric(r.sell), trend: (r) => r.trend },
   );
 
   const toggle = (r: Rate) => {
+    if (!isDemoMode()) {
+      if (!r.id) {
+        consoleActions.notify('This rate has no server id, so the source was not changed.');
+        return;
+      }
+      const source = r.source === 'Manual override' ? 'market_feed' : 'manual_override';
+      void apiRequest<{ message?: string }>(ENDPOINTS.pricing.override(r.id), { method: 'PUT', body: JSON.stringify({ source }) })
+        .then((saved) => {
+          consoleActions.notify(saved.message || `${r.mineral} ${r.grade} source updated`);
+          live.reload();
+        })
+        .catch((err: unknown) => consoleActions.notify(formatAuthError(err, 'The rate source was not changed.')));
+      return;
+    }
     const key = rateKey(r);
     const base = RATES.find((x) => rateKey(x) === key);
     consoleActions.set((s) => {
@@ -47,13 +68,23 @@ export default function RatesPage() {
     consoleActions.notify(`${r.mineral} ${r.grade} switched to ${r.source === 'Manual override' ? 'market feed' : 'manual desk rate'}`);
   };
 
-  const focusRow = RATES.find((r) => r.mineral === focus) ?? RATES[0];
-  const hist = useMemo(() => rateHistory(numeric(focusRow.buy), focus.length), [focusRow, focus]);
-  const change = ((hist[11] - hist[0]) / hist[0]) * 100;
+  const focusRow = live.rows.find((r) => r.mineral === focus) ?? live.rows[0];
+  const loadHistory = useCallback(
+    (signal?: AbortSignal) => (focusRow?.id ? getRateHistory(focusRow.id, range, signal) : Promise.resolve([] as number[])),
+    [focusRow?.id, range],
+  );
+  const history = useRemoteValue(loadHistory);
+  const hist = useMemo(() => {
+    if (!isDemoMode()) return history.data ?? [];
+    return focusRow ? rateHistory(numeric(focusRow.buy), focus.length) : [];
+  }, [focusRow, focus, history.data]);
+  if (!focusRow) return live.loading ? <Loader label="Loading rates" /> : <p>No rates are stored.</p>;
+  const series = hist.length > 1 ? hist : [];
+  const change = series.length > 1 && series[0] ? ((series[series.length - 1]! - series[0]) / series[0]) * 100 : 0;
   const meta = [
-    { k: 'Start', v: hist[0].toLocaleString('en-US') },
-    { k: 'High', v: Math.max(...hist).toLocaleString('en-US') },
-    { k: 'Low', v: Math.min(...hist).toLocaleString('en-US') },
+    { k: 'Start', v: series.length ? series[0]!.toLocaleString('en-US') : '—' },
+    { k: 'High', v: series.length ? Math.max(...series).toLocaleString('en-US') : '—' },
+    { k: 'Low', v: series.length ? Math.min(...series).toLocaleString('en-US') : '—' },
     { k: '12-week change', v: `${change > 0 ? '+' : ''}${change.toFixed(1)}%` },
   ];
 
@@ -134,7 +165,7 @@ export default function RatesPage() {
             </div>
           </div>
           <div style={{ marginTop: 14 }}>
-            <RateChart hist={hist} label={`Buy rate history for ${focus}`} />
+            {series.length > 1 ? <RateChart hist={series} label={`Buy rate history for ${focus}`} /> : <p>No rate history is stored for this range.</p>}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 4px 8px', fontSize: 10.5, fontWeight: 700, color: 'var(--ink3)' }}>
             {RANGE_AXIS[range].map((a) => (

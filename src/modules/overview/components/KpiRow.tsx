@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Icon } from '@/components/ui/Icon';
+import { Loader } from '@/components/ui/Loader';
 import { Text } from '@/components/ui/Text';
-import { STAGE_BAR } from '@/services/overview';
+import { useRemoteValue } from '@/hooks/useLiveList';
+import { STAGE_BAR, loadOverviewKpis } from '@/services/overview';
 import styles from '../Overview.module.css';
 
 function Kpi({ label, value, children, onClick }: { label: string; value: string; children: ReactNode; onClick: () => void }) {
@@ -43,6 +45,45 @@ export interface KpiTargets {
 
 /** The five headline KPI cards at the top of the overview. */
 export function KpiRow({ go }: { go: KpiTargets }) {
+  const remote = useRemoteValue(loadOverviewKpis);
+  if (!remote.demoMode && remote.loading) return <Loader label="Loading overview" />;
+  if (!remote.demoMode && remote.error) return <p role="alert">{remote.error}</p>;
+  if (!remote.demoMode && remote.data) {
+    const data = remote.data;
+    const orderTotal = data.stages.reduce((sum, stage) => sum + stage.count, 0) || 1;
+    return (
+      <div className={styles.kpis}>
+        <Kpi label="PENDING KYC REVIEWS" value={String(data.pendingKyc)} onClick={go.kyc}>
+          <Trend tone={data.overdue ? 'warn' : 'ok'} text={`${data.kycDelta >= 0 ? '+' : ''}${data.kycDelta} vs last week`} after={`· ${data.overdue} overdue`} />
+        </Kpi>
+        <Kpi label="ACTIVE ORDERS BY STAGE" value={String(data.activeOrders)} onClick={go.orders}>
+          <div style={{ display: 'flex', height: 8, borderRadius: 5, overflow: 'hidden', background: 'var(--surf3)' }} aria-hidden="true">
+            {data.stages.map((stage) => (
+              <span key={stage.short} style={{ width: `${((stage.count / orderTotal) * 100).toFixed(1)}%`, background: stage.color }} />
+            ))}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px' }}>
+            {data.stages.map((stage) => (
+              <span key={stage.short} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: 'var(--ink2)' }}>
+                <span style={{ width: 6, height: 6, borderRadius: 4, background: stage.color }} />
+                <span>{stage.short}</span>
+                <span>{stage.count}</span>
+              </span>
+            ))}
+          </div>
+        </Kpi>
+        <Kpi label="VAULT VALUE · REALISABLE" value={data.vault} onClick={go.vault}>
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink2)' }}>{data.unrealisedPct}% unrealised vs cost</span>
+        </Kpi>
+        <Kpi label="LIVE AUCTIONS" value={String(data.liveAuctions)} onClick={go.auctions}>
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink2)' }}>{data.closingToday} closing today</span>
+        </Kpi>
+        <Kpi label="SETTLEMENTS THIS WEEK" value={data.settlements} onClick={go.settlements}>
+          <Trend tone="ok" text={`${data.settled} settled`} after={`· ${data.pendingSettlements} pending`} />
+        </Kpi>
+      </div>
+    );
+  }
   return (
     <div className={styles.kpis}>
       <Kpi label="PENDING KYC REVIEWS" value="27" onClick={go.kyc}>

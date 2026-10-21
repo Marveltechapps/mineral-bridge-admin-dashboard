@@ -6,7 +6,8 @@ import { Text } from '@/components/ui/Text';
 import { Toggle } from '@/components/ui/Toggle';
 import { useQueryMatch } from '@/hooks/useConsoleData';
 import { consoleActions, useConsole } from '@/store/consoleStore';
-import { CATEGORIES } from '@/services/academy';
+import { useLiveList } from '@/hooks/useLiveList';
+import { CATEGORIES, getCourseCategories } from '@/services/academy';
 import layout from '@/styles/layout.module.css';
 
 const COLS = 'minmax(0,2.2fr) .8fr 1fr 1.5fr .9fr';
@@ -15,10 +16,11 @@ const COLS = 'minmax(0,2.2fr) .8fr 1fr 1.5fr .9fr';
 export default function CoursesPage() {
   const match = useQueryMatch();
   const toggles = useConsole((s) => s.toggles);
+  const live = useLiveList(getCourseCategories, CATEGORIES);
 
   return (
     <div className={layout.stack14}>
-      {CATEGORIES.map((g) => (
+      {live.rows.map((g) => (
         <Card key={g.category} clip>
           <section aria-label={g.category}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '14px 20px', background: 'var(--surf2)', borderBottom: '1px solid var(--line)' }}>

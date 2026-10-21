@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { Text } from '@/components/ui/Text';
 import { ROUTES } from '@/constants/routes';
+import { Toasts } from '@/layouts/AdminLayout/Toasts';
 import { consoleActions } from '@/store/consoleStore';
 import { sessionActions, useCurrentAccount } from '../hooks/useSession';
 import styles from './Auth.module.css';
@@ -42,6 +43,7 @@ export default function SignedOutPage() {
           </Text>
         </div>
       </div>
+      <Toasts />
     </div>
   );
 }

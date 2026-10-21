@@ -8,7 +8,9 @@ import { ROUTES } from '@/constants/routes';
 import { useQueryMatch, useSorted } from '@/hooks/useConsoleData';
 import { useConsole } from '@/store/consoleStore';
 import { numeric } from '@/lib/collection';
-import { DISPUTES, DISPUTE_FILTERS } from '@/services/disputes';
+import { useLiveList } from '@/hooks/useLiveList';
+import { Loader } from '@/components/ui/Loader';
+import { DISPUTES, DISPUTE_FILTERS, getDisputes } from '@/services/disputes';
 import layout from '@/styles/layout.module.css';
 
 const COLS = '1.3fr 1.2fr 1.7fr 1.6fr 1.4fr .8fr 1fr';
@@ -17,14 +19,17 @@ export default function DisputesPage() {
   const navigate = useNavigate();
   const match = useQueryMatch();
   const filter = useConsole((s) => s.filters.dsFilter);
+  const live = useLiveList(getDisputes, DISPUTES);
   const rows = useSorted(
-    DISPUTES.filter((x) => (filter === 'All disputes' || x.status.indexOf(filter) === 0) && match([x.id, x.link, x.type, x.party, x.status])),
+    live.rows.filter((x) => (filter === 'All disputes' || x.status.indexOf(filter) === 0) && match([x.id, x.link, x.type, x.party, x.status])),
     'disputes',
     { id: (x) => x.id, type: (x) => x.type, days: (x) => x.days, value: (x) => numeric(x.value) },
   );
 
   return (
     <div className={layout.stack14}>
+      {live.loading && <Loader label="Loading disputes" />}
+      {live.error && <p role="alert">{live.error}</p>}
       <FilterChips filterKey="dsFilter" options={DISPUTE_FILTERS} label="Filter disputes" />
       <Card clip>
         <DataTable

@@ -3,6 +3,9 @@ import { Icon } from '@/components/ui/Icon';
 import { Bar } from '@/components/ui/Misc';
 import { StatCard } from '@/components/ui/StatCard';
 import { Text } from '@/components/ui/Text';
+import { useRemoteValue } from '@/hooks/useLiveList';
+import { Loader } from '@/components/ui/Loader';
+import { loadAnalytics } from '@/services/analytics/analyticsService';
 import styles from '../Analytics.module.css';
 import layout from '@/styles/layout.module.css';
 
@@ -47,11 +50,14 @@ const ENGAGEMENT = [
 
 const AUCTION_SERIES = [62, 71, 68, 79, 74, 86, 91, 84, 96, 102, 98, 108];
 
-function AuctionChart() {
-  const pts = AUCTION_SERIES.map((v, i) => [(i / (AUCTION_SERIES.length - 1)) * 620 + 30, 160 - ((v - 55) / 60) * 120]);
+function AuctionChart({ series, design = false }: { series: number[]; design?: boolean }) {
+  const values = series.length > 1 ? series : [0, 0];
+  const low = design ? 55 : Math.min(...values);
+  const span = design ? 60 : Math.max(...values) - low || 1;
+  const pts = values.map((v, i) => [(i / (values.length - 1)) * 620 + 30, 160 - ((v - low) / span) * 120]);
   const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
   return (
-    <svg viewBox="0 0 680 180" width="100%" height={180} preserveAspectRatio="none" role="img" aria-label="Average bids per auction rose from 62 to 108 over 12 months">
+    <svg viewBox="0 0 680 180" width="100%" height={180} preserveAspectRatio="none" role="img" aria-label={`Average bids per auction rose from ${values[0]} to ${values[values.length - 1]} over 12 months`}>
       {[0, 1, 2, 3].map((i) => (
         <line key={i} x1={30} x2={650} y1={30 + i * 43} y2={30 + i * 43} style={{ stroke: 'var(--chGrid)' }} strokeWidth={1} />
       ))}
@@ -73,10 +79,24 @@ function CardTitle({ children }: { children: string }) {
 }
 
 export default function AnalyticsPage() {
+  const remote = useRemoteValue(loadAnalytics);
+  if (!remote.demoMode && remote.loading) return <Loader label="Loading analytics" />;
+  if (!remote.demoMode && remote.error) return <p role="alert">{remote.error}</p>;
+  const live = remote.data;
+  const kpis = remote.demoMode || !live ? KPIS : live.kpis;
+  const gmv = remote.demoMode || !live ? GMV : live.gmv;
+  const tiers = remote.demoMode || !live ? TIERS : live.tiers;
+  const stages = remote.demoMode || !live ? STAGES_B : live.stages;
+  const engagement = remote.demoMode || !live ? ENGAGEMENT : live.engagement;
+  const series = remote.demoMode || !live ? AUCTION_SERIES : live.auction;
+  const yoy = remote.demoMode || !live ? '+74% year on year' : live.yoy;
+  const bottleneck = remote.demoMode || !live ? 'Agent visit scheduling is 2.0 days over target' : live.bottleneck;
+  const gmvMax = Math.max(...gmv.map((row) => row[1]), 1);
+  const stageMax = remote.demoMode ? 5.2 : Math.max(...stages.map((row) => row[1]), 1);
   return (
     <div className={layout.page}>
       <div className={layout.stats4}>
-        {KPIS.map((k) => (
+        {kpis.map((k) => (
           <StatCard key={k.label} label={k.label} value={k.value} sub={k.sub} subTone="ok" />
         ))}
       </div>
@@ -85,12 +105,12 @@ export default function AnalyticsPage() {
         <Card radius={20} padding="22px 24px">
           <CardTitle>GMV by mineral · last 90 days</CardTitle>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 13, marginTop: 18 }}>
-            {GMV.map(([label, v, value]) => (
+            {gmv.map(([label, v, value]) => (
               <div key={label} className={styles.gmvRow}>
                 <Text size={12.5} weight={600} tone="ink">
                   {label}
                 </Text>
-                <Bar pct={((v / 42.8) * 100).toFixed(1) + '%'} height={13} radius={7} fillRadius={6} fill="linear-gradient(90deg,#1E2A5A,#3B4A87)" />
+                <Bar pct={((v / gmvMax) * 100).toFixed(1) + '%'} height={13} radius={7} fillRadius={6} fill="linear-gradient(90deg,#1E2A5A,#3B4A87)" />
                 <Text size={12.5} weight={800} tone="ink" align="right">
                   {value}
                 </Text>
@@ -102,7 +122,7 @@ export default function AnalyticsPage() {
         <Card radius={20} padding="22px 24px">
           <CardTitle>Tier distribution of active users</CardTitle>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 18 }}>
-            {TIERS.map(([label, count, pct, color]) => (
+            {tiers.map(([label, count, pct, color]) => (
               <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
                   <Text size={12.5} weight={700} tone="ink">
@@ -135,11 +155,11 @@ export default function AnalyticsPage() {
             </div>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 800, color: 'var(--okInk)' }}>
               <Icon name="up" size={12} />
-              +74% year on year
+              {yoy}
             </span>
           </div>
           <div style={{ marginTop: 12 }}>
-            <AuctionChart />
+            <AuctionChart series={series} design={remote.demoMode} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 6px 6px', fontSize: 10.5, fontWeight: 700, color: 'var(--ink3)' }}>
             {['Oct 25', 'Jan 26', 'Apr 26', 'Jul 26', 'Sep 26'].map((a) => (
@@ -151,7 +171,7 @@ export default function AnalyticsPage() {
         <Card radius={20} padding="22px 24px">
           <CardTitle>Academy engagement</CardTitle>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
-            {ENGAGEMENT.map(([label, value, delta]) => (
+            {engagement.map(([label, value, delta]) => (
               <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingBottom: 11, borderBottom: '1px solid var(--surf3)' }}>
                 <Text size={12.5} weight={600} tone="ink">
                   {label}
@@ -176,17 +196,17 @@ export default function AnalyticsPage() {
             Order pipeline bottlenecks · average days per stage
           </Text>
           <Text size={11.5} weight={700} tone="err">
-            Agent visit scheduling is 2.0 days over target
+            {bottleneck}
           </Text>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 13, marginTop: 18 }}>
-          {STAGES_B.map(([label, v, s]) => (
+          {stages.map(([label, v, s]) => (
             <div key={label} className={styles.stageRow}>
               <Text size={12.5} weight={600} tone="ink">
                 {label}
               </Text>
               <Bar
-                pct={((v / 5.2) * 100).toFixed(1) + '%'}
+                pct={((v / stageMax) * 100).toFixed(1) + '%'}
                 height={13}
                 radius={7}
                 fillRadius={6}

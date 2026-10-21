@@ -12,6 +12,7 @@ export const LC_STAGE_TONE: Record<LcStage, Tone> = {
 };
 
 export const LCS: LetterOfCredit[] = [
+  { id: 'LC-2026-0422', applicant: 'Athi River Refinery Ltd', beneficiary: 'Kilimapesa Mining Co-op', goods: 'Gold Concentrate · 7.2 kg', amount: 492840, bank: 'KCB Bank Kenya', status: 'Docs presented', expiry: '30 Oct 2026', days: 9, discrepancies: [], order: 'MB-SELL-41877' },
   { id: 'LC-2026-0418', applicant: 'Coast Bullion Partners', beneficiary: 'Rift Valley Minerals Ltd', goods: 'Gold Concentrate · 18.4 kg', amount: 1174000, bank: 'KCB Bank Kenya', status: 'Docs presented', expiry: '14 Oct 2026', days: 4, discrepancies: ['Bill of lading dated after latest shipment date', 'Assay certificate weight 18.21 kg vs 18.4 kg invoiced'], order: 'MB-SELL-41982' },
   { id: 'LC-2026-0415', applicant: 'Athi River Refinery Ltd', beneficiary: 'Machakos Mining SME', goods: 'Platinum Sponge · 42 kg', amount: 1312080, bank: 'Equity Bank', status: 'Shipped', expiry: '19 Oct 2026', days: 9, discrepancies: [], order: 'MB-BUY-38904' },
   { id: 'LC-2026-0412', applicant: 'Mombasa Metals Exchange', beneficiary: 'Nyanza Smelting Ltd', goods: 'Copper Cathode · 64 t', amount: 629760, bank: 'Standard Chartered KE', status: 'Issued', expiry: '02 Nov 2026', days: 23, discrepancies: [], order: 'MB-SELL-41903' },

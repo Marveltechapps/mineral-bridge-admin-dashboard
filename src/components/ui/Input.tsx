@@ -89,6 +89,7 @@ export function MoneyInput({
   fs = 13.5,
   prefixFs = 13,
   label,
+  inputId,
 }: {
   placeholder: string;
   h?: number;
@@ -99,13 +100,14 @@ export function MoneyInput({
   fs?: number;
   prefixFs?: number;
   label: string;
+  inputId?: string;
 }) {
   return (
     <span className={styles.inline} style={{ height: h, padding: `0 ${px}px`, ['--bd' as string]: border, borderRadius: r, background: bg }}>
       <span aria-hidden="true" style={{ fontSize: prefixFs, fontWeight: 800, color: 'var(--ink3)' }}>
         $
       </span>
-      <input className={styles.inlineInput} placeholder={placeholder} aria-label={label} inputMode="decimal" style={{ fontSize: fs }} />
+      <input id={inputId} className={styles.inlineInput} placeholder={placeholder} aria-label={label} inputMode="decimal" style={{ fontSize: fs }} />
     </span>
   );
 }

@@ -7,6 +7,10 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Text } from '@/components/ui/Text';
 import type { Tone } from '@/constants/tones';
 import { useQueryMatch, useSorted } from '@/hooks/useConsoleData';
+import { useLiveList, useRemoteValue } from '@/hooks/useLiveList';
+import { isDemoMode } from '@/lib/apiClient';
+import { formatAuthError } from '@/services/auth';
+import { getSettlementSummary, getSettlements } from '@/services/financial/financialService';
 import { consoleActions, useConsole } from '@/store/consoleStore';
 import { numeric } from '@/lib/collection';
 import styles from '../Financial.module.css';
@@ -33,13 +37,16 @@ const ESCROW = [
 export default function FinancialPage() {
   const match = useQueryMatch();
   const filter = useConsole((s) => s.filters.ledgerFilter);
-  const filtered = LEDGER.filter((l) => (filter === 'All settlements' || l.status === filter) && match([l.id, l.ref, l.party, l.kind, l.status]));
+  const live = useLiveList(getSettlements, LEDGER);
+  const summary = useRemoteValue(getSettlementSummary);
+  const cards = summary.demoMode ? ESCROW : (summary.data ?? []);
+  const filtered = live.rows.filter((l) => (filter === 'All settlements' || l.status === filter) && match([l.id, l.ref, l.party, l.kind, l.status]));
   const rows = useSorted(filtered, 'ledger', { id: (l) => l.id, date: (l) => l.date, amount: (l) => numeric(l.amount), status: (l) => l.status });
 
   return (
     <div className={layout.page}>
       <div className={layout.stats4}>
-        {ESCROW.map((e) => (
+        {cards.map((e) => (
           <StatCard key={e.label} label={e.label} value={e.value} sub={e.sub} />
         ))}
       </div>
@@ -53,10 +60,30 @@ export default function FinancialPage() {
             <FilterChips filterKey="ledgerFilter" options={['All settlements', 'Released', 'On hold', 'Disputed']} label="Filter settlements" gap={7} />
           </span>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Button variant="secondary" h={34} px={13} r={12} fs={12} icon="filter" onClick={() => consoleActions.notify('Period switched to August 2026')}>
+            <Button variant="secondary" h={34} px={13} r={12} fs={12} icon="filter" onClick={() => consoleActions.notify(isDemoMode() ? 'Period switched to August 2026' : 'The ledger shows the settlements returned for the current period.')}>
               September 2026
             </Button>
-            <Button variant="primary" h={34} px={13} r={12} fs={12} icon="download" onClick={() => consoleActions.notify('September 2026 statement exported as CSV')}>
+            <Button variant="primary" h={34} px={13} r={12} fs={12} icon="download" onClick={() => {
+              if (isDemoMode()) {
+                consoleActions.notify('September 2026 statement exported as CSV');
+                return;
+              }
+              const period = new Date().toISOString().slice(0, 7);
+              const base = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+              void fetch(`${base}/admin/v1/settlements/statement?format=csv&period=${period}`, { credentials: 'include' })
+                .then(async (res) => {
+                  if (!res.ok) throw new Error('The statement was not exported.');
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `settlements-${period}.csv`;
+                  link.click();
+                  URL.revokeObjectURL(url);
+                  consoleActions.notify(res.headers.get('X-Export-Message') || 'Settlement statement exported as CSV');
+                })
+                .catch((err: unknown) => consoleActions.notify(formatAuthError(err, 'The statement was not exported.')));
+            }}>
               Export statement
             </Button>
           </div>
@@ -104,8 +131,8 @@ export default function FinancialPage() {
           ))}
         </DataTable>
         <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', fontSize: 12, fontWeight: 600, color: 'var(--ink3)' }}>
-          <span>Showing {filtered.length} of 412 settlements this quarter</span>
-          <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--ink)' }}>Period total · $15,205,200</span>
+          <span>Showing {filtered.length} of {isDemoMode() ? '412 settlements this quarter' : `${live.rows.length} settlements`}</span>
+          {isDemoMode() && <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--ink)' }}>Period total · $15,205,200</span>}
         </div>
       </Card>
     </div>

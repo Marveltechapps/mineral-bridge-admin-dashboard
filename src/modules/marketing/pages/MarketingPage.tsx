@@ -5,11 +5,16 @@ import { Pill } from '@/components/ui/Pill';
 import { Text } from '@/components/ui/Text';
 import { Toggle } from '@/components/ui/Toggle';
 import { useQueryMatch } from '@/hooks/useConsoleData';
+import { useLiveList } from '@/hooks/useLiveList';
+import { apiRequest, isDemoMode } from '@/lib/apiClient';
+import { ENDPOINTS } from '@/lib/endpoints';
+import { formatAuthError } from '@/services/auth';
+import { getBanners } from '@/services/marketing/marketingService';
 import { consoleActions, useConsole } from '@/store/consoleStore';
 import layout from '@/styles/layout.module.css';
 
 const BANNERS = [
-  { title: 'Gold season buy rates', slot: 'Homepage hero banner', range: '01 Sep 2026 — 30 Sep 2026', active: true, kind: 'Hero' },
+  { id: 'gold-season', title: 'Gold season buy rates', slot: 'Homepage hero banner', range: '01 Sep 2026 — 30 Sep 2026', active: true, kind: 'Hero', link: '/sell' },
   { title: 'Tier 3 bulk consignment push', slot: 'Homepage secondary banner', range: '15 Aug 2026 — 15 Oct 2026', active: true, kind: 'Secondary' },
   { title: 'Academy certified tracks launch', slot: 'In-app promo card', range: '20 Aug 2026 — 20 Sep 2026', active: true, kind: 'Promo card' },
   { title: 'Silver auction weekend', slot: 'Homepage hero banner', range: '12 Sep 2026 — 14 Sep 2026', active: false, kind: 'Hero' },
@@ -23,7 +28,8 @@ const COLS = '88px minmax(0,2fr) 1.1fr 1.6fr 1fr 1.1fr';
 export default function MarketingPage() {
   const match = useQueryMatch();
   const toggles = useConsole((s) => s.toggles);
-  const rows = BANNERS.filter((m) => match([m.title, m.slot, m.kind]));
+  const live = useLiveList(getBanners, BANNERS.map((row) => ({ id: row.title, link: '/sell', ...row })));
+  const rows = live.rows.filter((m) => match([m.title, m.slot, m.kind]));
 
   return (
     <div className={layout.stack16}>
@@ -116,8 +122,17 @@ export default function MarketingPage() {
                     onColor="var(--okInk2)"
                     label={`Banner live: ${m.title}`}
                     onClick={() => {
-                      consoleActions.set((s) => ({ toggles: { ...s.toggles, [key]: !on } }));
-                      consoleActions.notify(`“${m.title}” ${!on ? 'set live' : 'taken offline'}`);
+                      if (isDemoMode()) {
+                        consoleActions.set((s) => ({ toggles: { ...s.toggles, [key]: !on } }));
+                        consoleActions.notify(`“${m.title}” ${!on ? 'set live' : 'taken offline'}`);
+                        return;
+                      }
+                      void apiRequest<{ message?: string }>(ENDPOINTS.marketing.banner(m.id), { method: 'PATCH', body: JSON.stringify({ active: !on }) })
+                        .then((saved) => {
+                          consoleActions.notify(saved.message || `“${m.title}” ${!on ? 'set live' : 'taken offline'}`);
+                          live.reload();
+                        })
+                        .catch((err: unknown) => consoleActions.notify(formatAuthError(err, 'The banner was not updated.')));
                     }}
                   />
                   <Pill tone={on ? 'green' : 'gray'}>{on ? 'Active' : 'Scheduled'}</Pill>
@@ -140,7 +155,7 @@ export default function MarketingPage() {
                           { label: 'PLACEMENT', value: m.slot },
                           { label: 'ACTIVE FROM', value: from },
                           { label: 'ACTIVE UNTIL', value: until || '' },
-                          { label: 'LINK TARGET', value: '/sell' },
+                          { label: 'LINK TARGET', value: m.link },
                         ],
                         cta: 'Save banner',
                         done: `“${m.title}” updated`,

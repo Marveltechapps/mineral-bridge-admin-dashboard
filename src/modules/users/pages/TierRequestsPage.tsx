@@ -4,17 +4,39 @@ import { Icon } from '@/components/ui/Icon';
 import { EmptyCard, Initials } from '@/components/ui/Misc';
 import { Pill } from '@/components/ui/Pill';
 import { Text } from '@/components/ui/Text';
+import { useLiveList } from '@/hooks/useLiveList';
+import { apiRequest, isDemoMode } from '@/lib/apiClient';
+import { ENDPOINTS } from '@/lib/endpoints';
 import { consoleActions, useConsole } from '@/store/consoleStore';
-import { TIER_REQUESTS, initialsOfName } from '@/services/users';
+import { formatAuthError } from '@/services/auth';
+import { TIER_REQUESTS, getTierRequests, initialsOfName } from '@/services/users';
+import { refreshCounters } from '@/services/shell/counters';
 import styles from '../Users.module.css';
 import layout from '@/styles/layout.module.css';
 
 export default function TierRequestsPage() {
   const done = useConsole((s) => s.tierDone);
-  const open = TIER_REQUESTS.filter((t) => !done[t.name]);
-  const decide = (name: string, outcome: string, text: string) => {
-    consoleActions.notify(text);
-    consoleActions.set((s) => ({ tierDone: { ...s.tierDone, [name]: outcome } }));
+  const live = useLiveList(getTierRequests, TIER_REQUESTS as Array<(typeof TIER_REQUESTS)[number] & { id?: string }>);
+  const open = live.rows.filter((t) => !done[t.name]);
+  const decide = (name: string, outcome: string, text: string, id?: string) => {
+    if (isDemoMode()) {
+      consoleActions.notify(text);
+      consoleActions.set((s) => ({ tierDone: { ...s.tierDone, [name]: outcome } }));
+      return;
+    }
+    if (!id) {
+      consoleActions.notify('This request has no server id, so it was not decided.');
+      return;
+    }
+    const body = outcome === 'approved' ? { decision: 'approve' } : { decision: 'deny', reason: text };
+    void apiRequest<{ message?: string }>(ENDPOINTS.users.tierDecision(id), { method: 'POST', body: JSON.stringify(body) })
+      .then((saved) => {
+        consoleActions.notify(saved.message || text);
+        consoleActions.set((s) => ({ tierDone: { ...s.tierDone, [name]: outcome } }));
+        live.reload();
+        refreshCounters();
+      })
+      .catch((err: unknown) => consoleActions.notify(formatAuthError(err, 'The tier decision was not saved.')));
   };
 
   return (
@@ -51,10 +73,10 @@ export default function TierRequestsPage() {
             </Text>
           </span>
           <span style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <Button variant="success" h={38} px={15} r={12} gap={6} icon="check" onClick={() => decide(t.name, 'approved', `${t.name} moved to ${t.to}`)}>
+            <Button variant="success" h={38} px={15} r={12} gap={6} icon="check" onClick={() => decide(t.name, 'approved', `${t.name} moved to ${t.to}`, t.id)}>
               Approve
             </Button>
-            <Button variant="dangerSoft" h={38} px={15} r={12} onClick={() => decide(t.name, 'denied', `${t.name}’s tier request denied`)}>
+            <Button variant="dangerSoft" h={38} px={15} r={12} onClick={() => decide(t.name, 'denied', `${t.name}’s tier request denied`, t.id)}>
               Deny
             </Button>
           </span>

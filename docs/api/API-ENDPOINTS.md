@@ -96,7 +96,7 @@ at `view` or `edit`. `auth` means any signed-in staff member. Items marked
 
 | # | Method | Path | Purpose | Triggered by | Permission |
 |---:|---|---|---|---|---|
-| 1 | POST | `/auth/sign-in` | Check email + password, start the 2FA challenge | Login → **Sign in** | public |
+| 1 | POST | `/auth/sign-in` | Check email + password and open the staff session | Login → **Sign in** | public |
 | 2 | POST | `/auth/sso/start` | Start staff SSO for a work email and return the IdP redirect | Login → **Continue with staff SSO** | public |
 | 3 | POST | `/auth/sso/callback` | Exchange the IdP code and start the 2FA challenge | SSO return URL | public |
 | 4 | POST | `/auth/otp/verify` | Verify the 6-digit code, issue the session cookie | Verify → **Verify and open console** | challenge |

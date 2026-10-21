@@ -140,7 +140,7 @@ export const consoleActions = {
   },
 
   setQuery(query: string) {
-    set({ query });
+    set({ query, orderPage: 0 });
   },
 
   clearQuery() {

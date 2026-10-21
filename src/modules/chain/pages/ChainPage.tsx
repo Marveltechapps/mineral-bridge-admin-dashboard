@@ -8,7 +8,8 @@ import { Text } from '@/components/ui/Text';
 import { useQueryMatch } from '@/hooks/useConsoleData';
 import { useJump } from '@/hooks/useJump';
 import { consoleActions, useConsole } from '@/store/consoleStore';
-import { EVENTS, EVENT_FILTERS, EVENT_FILTER_TYPE, NET_STATUS, PASSPORT_WEEKS } from '@/services/chain';
+import { useLiveList, useRemoteValue } from '@/hooks/useLiveList';
+import { EVENTS, EVENT_FILTERS, EVENT_FILTER_TYPE, NET_STATUS, PASSPORT_WEEKS, getChainEvents, getNetworkStatus, getPassportWeeks } from '@/services/chain';
 import styles from '../Chain.module.css';
 import layout from '@/styles/layout.module.css';
 
@@ -19,12 +20,16 @@ export default function ChainPage() {
   const match = useQueryMatch();
   const jump = useJump();
   const filter = useConsole((s) => s.filters.bcFilter);
-  const rows = EVENTS.filter((e) => (filter === 'All events' || e.type === EVENT_FILTER_TYPE[filter]) && match([e.type, e.ref, e.desc, e.hash]));
+  const live = useLiveList(getChainEvents, EVENTS);
+  const network = useRemoteValue(getNetworkStatus);
+  const weeksRemote = useRemoteValue(getPassportWeeks);
+  const weeks = weeksRemote.demoMode ? PASSPORT_WEEKS : (weeksRemote.data ?? []);
+  const rows = live.rows.filter((e) => (filter === 'All events' || e.type === EVENT_FILTER_TYPE[filter]) && match([e.type, e.ref, e.desc, e.hash]));
 
   return (
     <div className={layout.page}>
       <div className={layout.stats4}>
-        {NET_STATUS.map((n) => (
+        {(network.demoMode ? NET_STATUS : (network.data ?? [])).map((n) => (
           <Card key={n.name} lift padding="16px 18px" style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
               <span
@@ -119,7 +124,7 @@ export default function ChainPage() {
             </span>
           </div>
           <div className={styles.bars} role="img" aria-label="Passports minted per week: 28 to 46">
-            {PASSPORT_WEEKS.map(([label, v], i) => (
+            {weeks.map(([label, v], i) => (
               <div key={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, height: '100%', justifyContent: 'flex-end' }}>
                 <Text size={10.5} weight={800} tone="ink2">
                   {v}
@@ -131,7 +136,7 @@ export default function ChainPage() {
                       width: '100%',
                       height: `${((v / 46) * 100).toFixed(0)}%`,
                       borderRadius: '7px 7px 3px 3px',
-                      background: i === PASSPORT_WEEKS.length - 1 ? 'linear-gradient(180deg,#F7DD8E,#C8962F)' : 'var(--line3)',
+                      background: i === weeks.length - 1 ? 'linear-gradient(180deg,#F7DD8E,#C8962F)' : 'var(--line3)',
                       transformOrigin: 'bottom',
                       animation: `mbFadeUp .5s ${(i * 0.05).toFixed(2)}s backwards ease`,
                     }}

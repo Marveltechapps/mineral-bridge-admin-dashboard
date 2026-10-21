@@ -10,7 +10,9 @@ import { ROUTES } from '@/constants/routes';
 import { useQueryMatch, useSorted } from '@/hooks/useConsoleData';
 import { consoleActions, useConsole } from '@/store/consoleStore';
 import { numeric } from '@/lib/collection';
-import { LISTINGS, LISTING_FILTERS, LISTING_STATS, accessTone, unitOf } from '@/services/listings';
+import { useLiveList } from '@/hooks/useLiveList';
+import { Loader } from '@/components/ui/Loader';
+import { LISTINGS, LISTING_FILTERS, LISTING_STATS, accessTone, getListings, getListingStats, unitOf } from '@/services/listings';
 import layout from '@/styles/layout.module.css';
 import { CatalogHierarchyPanel } from '../CatalogHierarchyPanel';
 
@@ -20,8 +22,10 @@ export default function ListingsPage() {
   const navigate = useNavigate();
   const match = useQueryMatch();
   const filter = useConsole((s) => s.filters.listFilter);
+  const live = useLiveList(getListings, LISTINGS);
+  const stats = useLiveList(getListingStats, LISTING_STATS);
   const rows = useSorted(
-    LISTINGS.filter((l) => (filter === 'All listings' || l.status === filter) && match([l.id, l.lot, l.mineral, l.grade, l.status, l.access])),
+    live.rows.filter((l) => (filter === 'All listings' || l.status === filter) && match([l.id, l.lot, l.mineral, l.grade, l.status, l.access])),
     'listings',
     { id: (l) => l.id, mineral: (l) => l.mineral, price: (l) => numeric(l.price), value: (l) => numeric(l.value), views: (l) => l.views, status: (l) => l.status },
   );
@@ -30,7 +34,9 @@ export default function ListingsPage() {
     <div className={layout.stack16}>
       <CatalogHierarchyPanel />
       <div className={layout.stats4}>
-        {LISTING_STATS.map((s) => (
+        {(live.loading || stats.loading) && <Loader label="Loading listings" />}
+        {(live.error || stats.error) && <p role="alert">{live.error || stats.error}</p>}
+        {stats.rows.map((s) => (
           <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} />
         ))}
       </div>
@@ -123,7 +129,7 @@ export default function ListingsPage() {
         </DataTable>
         {rows.length === 0 && <TableEmpty>No listings match this filter or search.</TableEmpty>}
         <TableFooter>
-          Showing {rows.length} of {LISTINGS.length} catalog listings
+          Showing {rows.length} of {live.rows.length} catalog listings
         </TableFooter>
       </Card>
     </div>

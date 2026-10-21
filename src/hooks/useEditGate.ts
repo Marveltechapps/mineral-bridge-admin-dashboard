@@ -1,11 +1,13 @@
 import type { CSSProperties } from 'react';
+import { isDemoMode } from '@/lib/apiClient';
+import { formatAuthError } from '@/services/auth';
 import { consoleActions, useConsole } from '@/store/consoleStore';
 
 /**
  * Port of the design's editGate(): a read-only form section that flips into
  * edit mode, with matching field styles and the blue "EDITING" badge.
  */
-export function useEditGate(key: string, doneMsg: string) {
+export function useEditGate(key: string, doneMsg: string, persist?: () => Promise<string>) {
   const on = useConsole((s) => !!s.editing[key]);
   const field: CSSProperties = {
     height: 42,
@@ -28,6 +30,19 @@ export function useEditGate(key: string, doneMsg: string) {
     edit: () => consoleActions.setEditing(key, true),
     cancel: () => consoleActions.setEditing(key, false),
     save: () => {
+      if (!isDemoMode()) {
+        if (!persist) {
+          consoleActions.notify('This change is not saved on the server. Nothing was changed.');
+          return;
+        }
+        void persist()
+          .then((message) => {
+            consoleActions.setEditing(key, false);
+            consoleActions.notify(message);
+          })
+          .catch((err: unknown) => consoleActions.notify(formatAuthError(err, 'The change was not saved.')));
+        return;
+      }
       consoleActions.setEditing(key, false);
       consoleActions.notify(doneMsg);
     },

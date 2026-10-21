@@ -2,12 +2,16 @@ import { Bar } from '@/components/ui/Misc';
 import { Card } from '@/components/ui/Card';
 import { Pill } from '@/components/ui/Pill';
 import { Text } from '@/components/ui/Text';
-import { QUEUES, VAULT_BY_MINERAL } from '@/services/overview';
+import { Loader } from '@/components/ui/Loader';
+import { useRemoteValue } from '@/hooks/useLiveList';
+import { QUEUES, VAULT_BY_MINERAL, loadOverviewKpis } from '@/services/overview';
 import type { QueueTarget } from '@/types/overview';
 import styles from '../Overview.module.css';
 
 /** Navy card: realisable vault value by mineral. */
 export function VaultByMineral({ onOpen }: { onOpen: () => void }) {
+  const remote = useRemoteValue(loadOverviewKpis);
+  const minerals = remote.demoMode ? VAULT_BY_MINERAL : (remote.data?.minerals ?? []);
   return (
     <div className={styles.vaultCard}>
       <button type="button" className={styles.vaultHead} onClick={onOpen} aria-label="Vault value by mineral — open Vault & Inventory">
@@ -19,7 +23,9 @@ export function VaultByMineral({ onOpen }: { onOpen: () => void }) {
         </Text>
       </button>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-        {VAULT_BY_MINERAL.map((m) => (
+        {remote.loading && <Loader label="Loading vault" />}
+        {!remote.loading && minerals.length === 0 && <Text size={12} weight={600} tone="white">No lots are in custody.</Text>}
+        {minerals.map((m) => (
           <div key={m.name} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
               <Text size={12.5} weight={700} tone="white">
@@ -43,12 +49,16 @@ export function VaultByMineral({ onOpen }: { onOpen: () => void }) {
 
 /** Work queues that deep-link into the owning module. */
 export function DeskQueues({ onOpen }: { onOpen: (target: QueueTarget) => void }) {
+  const remote = useRemoteValue(loadOverviewKpis);
+  const queues = remote.demoMode ? QUEUES : (remote.data?.queues ?? []);
   return (
     <Card padding="18px 20px" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <Text size={10.5} weight={800} ls={1.1} tone="ink3">
         DESK QUEUES
       </Text>
-      {QUEUES.map((q) => (
+      {remote.loading && <Loader label="Loading queues" />}
+      {!remote.demoMode && remote.error && <p role="alert">{remote.error}</p>}
+      {queues.map((q) => (
         <button key={q.label} type="button" className={styles.queue} onClick={() => onOpen(q.target)}>
           <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Text size={12.5} weight={700} tone="ink">

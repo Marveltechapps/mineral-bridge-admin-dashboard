@@ -25,8 +25,8 @@ export function RouteError() {
         ? 'Your session has ended'
         : error.status === 403
           ? 'This account cannot open that screen'
-          : 'The operations API could not be reached';
-    detail = error.message;
+          : 'This screen could not be loaded';
+    detail = error.message || (error.status ? `${error.status} — Request failed` : 'The operations API could not be reached');
   } else if (isRouteErrorResponse(error)) {
     heading = `${error.status} — ${error.statusText}`;
     detail = 'That address does not match a console screen.';

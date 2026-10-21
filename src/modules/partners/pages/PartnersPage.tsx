@@ -8,6 +8,8 @@ import { Text } from '@/components/ui/Text';
 import type { IconName } from '@/constants/icons';
 import type { Tone } from '@/constants/tones';
 import { useQueryMatch } from '@/hooks/useConsoleData';
+import { useRemoteValue } from '@/hooks/useLiveList';
+import { getPartnerGroups } from '@/services/partners/partnersService';
 import { consoleActions, useConsole } from '@/store/consoleStore';
 import layout from '@/styles/layout.module.css';
 
@@ -56,7 +58,8 @@ const COLS = 'minmax(0,1.5fr) minmax(0,1.7fr) 1fr .9fr 1.2fr .7fr';
 export default function PartnersPage() {
   const match = useQueryMatch();
   const filter = useConsole((s) => s.filters.partnerFilter);
-  const groups = GROUPS.filter((g) => filter === 'All partners' || g.label === filter);
+  const remote = useRemoteValue(getPartnerGroups);
+  const groups = (remote.demoMode ? GROUPS : (remote.data ?? [])).filter((g) => filter === 'All partners' || g.label === filter);
 
   return (
     <div className={layout.stack16}>

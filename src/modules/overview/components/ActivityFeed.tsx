@@ -4,11 +4,15 @@ import { Card } from '@/components/ui/Card';
 import { Icon } from '@/components/ui/Icon';
 import { Text } from '@/components/ui/Text';
 import { TONE_BG, TONE_INK_FIXED } from '@/constants/tones';
-import { ACTIVITY } from '@/services/overview';
+import { Loader } from '@/components/ui/Loader';
+import { useRemoteValue } from '@/hooks/useLiveList';
+import { ACTIVITY, loadActivity } from '@/services/overview';
 import styles from '../Overview.module.css';
 
 /** "Recent activity" — last 20 events; each row opens the record it mentions. */
 export function ActivityFeed({ onOpen, onFullLog }: { onOpen: (text: string) => void; onFullLog: () => void }) {
+  const remote = useRemoteValue(loadActivity);
+  const items = remote.demoMode ? ACTIVITY : (remote.data ?? []);
   return (
     <Card clip>
       <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--surf3)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -20,11 +24,14 @@ export function ActivityFeed({ onOpen, onFullLog }: { onOpen: (text: string) => 
         </Button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {ACTIVITY.map((a) => {
+        {remote.loading && <Loader label="Loading activity" />}
+        {!remote.demoMode && remote.error && <p role="alert" style={{ padding: 16 }}>{remote.error}</p>}
+        {!remote.loading && items.length === 0 && <p style={{ padding: 16 }}>No activity has been recorded.</p>}
+        {items.map((a, index) => {
           const open = () => onOpen(`${a.text} ${a.meta}`);
           return (
             <div
-              key={a.text}
+              key={`${a.text}-${index}`}
               className={styles.activity}
               role="button"
               tabIndex={0}

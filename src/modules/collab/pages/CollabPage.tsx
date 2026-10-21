@@ -12,7 +12,8 @@ import { Text } from '@/components/ui/Text';
 import { ROUTES } from '@/constants/routes';
 import { useQueryMatch } from '@/hooks/useConsoleData';
 import { FILTER_DEFAULTS, consoleActions, useConsole } from '@/store/consoleStore';
-import { COLLAB_STATS, CONTRACTS, NEGOTIATIONS, NEG_FILTERS, TOP_MINERS, TOP_TRADERS } from '@/services/collab';
+import { useLiveList, useRemoteValue } from '@/hooks/useLiveList';
+import { COLLAB_STATS, CONTRACTS, NEGOTIATIONS, NEG_FILTERS, TOP_MINERS, TOP_TRADERS, getCollabStats, getContracts, getMinerRankings, getNegotiations, getTraderRankings } from '@/services/collab';
 import type { Negotiation } from '@/types/collab';
 import styles from '../Collab.module.css';
 import layout from '@/styles/layout.module.css';
@@ -153,13 +154,18 @@ export default function CollabPage() {
   const match = useQueryMatch();
   const filter = useConsole((s) => s.filters.negFilter);
   const selId = useConsole((s) => s.negSel);
-  const sel = NEGOTIATIONS.find((n) => n.id === selId);
-  const rows = NEGOTIATIONS.filter((n) => (filter === 'All negotiations' || n.status === filter) && match([n.id, n.miner, n.trader, n.goods, n.status]));
+  const live = useLiveList(getNegotiations, NEGOTIATIONS);
+  const contracts = useLiveList(getContracts, CONTRACTS);
+  const stats = useRemoteValue(getCollabStats);
+  const miners = useRemoteValue(getMinerRankings);
+  const traders = useRemoteValue(getTraderRankings);
+  const sel = live.rows.find((n) => n.id === selId);
+  const rows = live.rows.filter((n) => (filter === 'All negotiations' || n.status === filter) && match([n.id, n.miner, n.trader, n.goods, n.status]));
 
   return (
     <div className={layout.stack16}>
       <div className={layout.stats4}>
-        {COLLAB_STATS.map((s) => (
+        {(stats.demoMode ? COLLAB_STATS : (stats.data ?? [])).map((s) => (
           <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} />
         ))}
       </div>
@@ -232,7 +238,7 @@ export default function CollabPage() {
               Contracts signed
             </Text>
           </div>
-          {CONTRACTS.map((c) => {
+          {contracts.rows.map((c) => {
             const open = () => {
               consoleActions.set((s) => ({ lcSel: c.lc, negSel: null, filters: { ...s.filters, lcFilter: FILTER_DEFAULTS.lcFilter } }));
               navigate(ROUTES.lc);
@@ -269,8 +275,8 @@ export default function CollabPage() {
             );
           })}
         </Card>
-        <RankList title="Top-rated miners" rows={TOP_MINERS} />
-        <RankList title="Top-rated traders" rows={TOP_TRADERS} />
+        <RankList title="Top-rated miners" rows={miners.demoMode ? TOP_MINERS : (miners.data ?? [])} />
+        <RankList title="Top-rated traders" rows={traders.demoMode ? TOP_TRADERS : (traders.data ?? [])} />
       </div>
     </div>
   );

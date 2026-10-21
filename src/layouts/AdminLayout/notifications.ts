@@ -1,3 +1,5 @@
+import { apiRequest } from '@/lib/apiClient';
+import { asRecord, textOf } from '@/lib/wire';
 import type { Tone } from '@/constants/tones';
 
 export interface BellItem {
@@ -6,6 +8,24 @@ export interface BellItem {
   tone: Tone;
   /** Text passed to the jump resolver to open the related record. */
   target: string;
+}
+
+const SEVERITY: Record<string, Tone> = { critical: 'red', high: 'red', medium: 'amber', low: 'blue', info: 'gray' };
+
+export async function loadNotifications(signal?: AbortSignal): Promise<{ unread: number; items: BellItem[] }> {
+  const body = await apiRequest<{ data?: Array<Record<string, unknown>>; meta?: { unread?: number } }>('/notifications?limit=20', { signal });
+  return {
+    unread: Number(body.meta?.unread ?? 0),
+    items: (body.data ?? []).map((row) => {
+      const target = asRecord(row.target);
+      return {
+        text: textOf(row.text),
+        meta: textOf(row.meta),
+        tone: SEVERITY[textOf(row.severity)] ?? 'gray',
+        target: textOf(target?.id) || textOf(row.text),
+      };
+    }),
+  };
 }
 
 export const BELL_ITEMS: BellItem[] = [

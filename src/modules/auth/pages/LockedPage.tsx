@@ -62,6 +62,7 @@ export default function LockedPage() {
             r={13}
             fs={12.5}
             onClick={() => {
+              consoleActions.notify('Session close is recorded in the audit log');
               sessionActions.signOut();
               navigate(ROUTES.signedOut, { replace: true });
             }}

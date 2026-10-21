@@ -2,15 +2,22 @@ import { Card } from '@/components/ui/Card';
 import { Bar } from '@/components/ui/Misc';
 import { StatCard } from '@/components/ui/StatCard';
 import { Text } from '@/components/ui/Text';
-import { ACADEMY_STATS, COMPLETION, TIER_COLORS } from '@/services/academy';
+import { useRemoteValue } from '@/hooks/useLiveList';
+import { Loader } from '@/components/ui/Loader';
+import { ACADEMY_STATS, COMPLETION, TIER_COLORS, getAcademyAnalytics } from '@/services/academy';
 import styles from '../Academy.module.css';
 import layout from '@/styles/layout.module.css';
 
 export default function CompletionPage() {
+  const remote = useRemoteValue(getAcademyAnalytics);
+  const stats = remote.demoMode ? ACADEMY_STATS : (remote.data?.stats ?? []);
+  const completion = remote.demoMode ? COMPLETION : (remote.data?.completion ?? []);
+  if (!remote.demoMode && remote.loading) return <Loader label="Loading academy analytics" />;
+  if (!remote.demoMode && remote.error) return <p role="alert">{remote.error}</p>;
   return (
     <div className={layout.page}>
       <div className={layout.stats4}>
-        {ACADEMY_STATS.map((s) => (
+        {stats.map((s) => (
           <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} />
         ))}
       </div>
@@ -29,7 +36,7 @@ export default function CompletionPage() {
           </span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 20 }}>
-          {COMPLETION.map((c) => (
+          {completion.map((c) => (
             <div key={c.title} className={styles.completionRow}>
               <Text size={12.5} weight={700} tone="ink">
                 {c.title}

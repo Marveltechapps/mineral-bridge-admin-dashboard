@@ -1,14 +1,17 @@
-import type { KeyboardEvent } from 'react';
+import { useCallback, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BackButton, Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Loader } from '@/components/ui/Loader';
 import { Field, Input } from '@/components/ui/Input';
 import { KeyValue } from '@/components/ui/Misc';
 import { Eyebrow, Text } from '@/components/ui/Text';
 import { StaticToggle } from '@/components/ui/Toggle';
 import { ROUTES } from '@/constants/routes';
+import { useRemoteValue } from '@/hooks/useLiveList';
 import { consoleActions, useConsole } from '@/store/consoleStore';
-import { CREATE_LOTS, LOT_OPTIONS } from '@/services/auctions';
+import { isDemoMode } from '@/lib/apiClient';
+import { CREATE_LOTS, LOT_OPTIONS, getEligibleLots } from '@/services/auctions';
 import layout from '@/styles/layout.module.css';
 
 const termInput = { h: 44, r: 12, px: 14, fs: 13.5 } as const;
@@ -16,6 +19,36 @@ const termInput = { h: 44, r: 12, px: 14, fs: 13.5 } as const;
 export default function AuctionCreatePage() {
   const navigate = useNavigate();
   const createLot = useConsole((s) => s.createLot);
+  const eligible = useRemoteValue(useCallback((signal?: AbortSignal) => getEligibleLots(signal), []));
+  if (!isDemoMode()) {
+    if (eligible.loading) return <Loader label="Loading vault lots" />;
+    if (eligible.error) return <p role="alert">{eligible.error}</p>;
+    const lots = eligible.data ?? [];
+    return (
+      <div className={layout.stack16}>
+        <BackButton onClick={() => navigate(ROUTES.auctions)}>Back to auctions</BackButton>
+        <Card radius={20} padding={24}>
+          <Eyebrow>VAULT LOTS ELIGIBLE FOR AUCTION</Eyebrow>
+          {lots.length === 0 ? (
+            <Text size={12.5} weight={600} tone="ink3" style={{ marginTop: 12 }}>
+              No lots are currently in the vault and eligible for an auction.
+            </Text>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
+              {lots.map((lot) => (
+                <Text key={lot.id} size={12.5} weight={600} tone="ink2">
+                  {lot.id} · {lot.mineral} · {lot.qty} · cost {lot.cost} · realisable {lot.realisable}
+                </Text>
+              ))}
+            </div>
+          )}
+          <Text size={12} weight={600} tone="ink3" style={{ marginTop: 16 }}>
+            This form does not send a starting bid, reserve, increment, open time, or close time, so POST /auctions is not called. Nothing is published.
+          </Text>
+        </Card>
+      </div>
+    );
+  }
   const [title, sub, cost, real, start, reserve, increment] = CREATE_LOTS[createLot] ?? CREATE_LOTS['MBV-2026-0412'];
 
   return (

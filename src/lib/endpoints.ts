@@ -1,7 +1,6 @@
 /**
- * Backend endpoints the console would call in production. The current build
- * runs on bundled demo data (VITE_API_BASE_URL empty), so none of these are
- * requested yet — they document the integration surface for each screen.
+ * Backend endpoints the console calls when VITE_API_BASE_URL is set.
+ * An empty base URL keeps the design prototype on bundled fixtures.
  */
 export const ENDPOINTS = {
   auth: {
@@ -9,9 +8,17 @@ export const ENDPOINTS = {
     sso: '/auth/sso/start',
     verifyOtp: '/auth/otp/verify',
     resendOtp: '/auth/otp/resend',
+    devLoginStatus: '/auth/dev-login',
+    devLogin: '/auth/dev-login',
+    devLoginVerify: '/auth/dev-login/verify',
     unlock: '/auth/unlock',
     signOut: '/auth/sign-out',
     passwordReset: '/auth/password-reset',
+  },
+  overview: {
+    summary: '/overview/summary',
+    tradeFinance: '/overview/trade-finance',
+    activity: '/overview/activity',
   },
   orders: {
     list: '/orders',
@@ -25,30 +32,85 @@ export const ENDPOINTS = {
     exportCsv: '/orders/export',
   },
   vault: {
+    summary: '/vault/summary',
     lots: '/vault/lots',
     lot: (id: string) => `/vault/lots/${id}`,
     allocate: (id: string) => `/vault/lots/${id}/allocation`,
   },
-  listings: { list: '/listings', detail: (id: string) => `/listings/${id}` },
+  listings: {
+    summary: '/listings/summary',
+    list: '/listings',
+    detail: (id: string) => `/listings/${id}`,
+    pause: (id: string) => `/listings/${encodeURIComponent(id)}/pause`,
+    resume: (id: string) => `/listings/${encodeURIComponent(id)}/resume`,
+    end: (id: string) => `/listings/${encodeURIComponent(id)}/end`,
+  },
   catalog: {
     hierarchy: '/catalog/hierarchy',
     form: (slug: string) => `/catalog/forms/${slug}`,
   },
-  pricing: { rates: '/pricing/rates', override: (key: string) => `/pricing/rates/${key}/override`, offers: '/pricing/offers' },
-  auctions: { list: '/auctions', detail: (id: string) => `/auctions/${id}`, bids: (id: string) => `/auctions/${id}/bids` },
-  lc: { list: '/letters-of-credit', detail: (id: string) => `/letters-of-credit/${id}`, release: (id: string) => `/letters-of-credit/${id}/release` },
-  collab: { negotiations: '/negotiations', contracts: '/contracts' },
-  chain: { events: '/chain/events', anchor: '/chain/anchor', verifyPassport: '/chain/passports/verify' },
-  users: { list: '/users', detail: (id: string) => `/users/${id}`, tierRequests: '/users/tier-requests' },
-  compliance: { kyc: '/compliance/kyc', documents: '/compliance/documents' },
-  disputes: { list: '/disputes', detail: (id: string) => `/disputes/${id}` },
-  academy: { courses: '/academy/courses', analytics: '/academy/analytics' },
-  marketing: { banners: '/marketing/banners' },
+  pricing: {
+    rates: '/pricing/rates',
+    history: (id: string) => `/pricing/rates/${encodeURIComponent(id)}/history`,
+    override: (id: string) => `/pricing/rates/${encodeURIComponent(id)}/source`,
+    offers: '/pricing/offers',
+    offerDecision: (id: string) => `/pricing/offers/${encodeURIComponent(id)}/decision`,
+  },
+  auctions: {
+    list: '/auctions',
+    detail: (id: string) => `/auctions/${id}`,
+    bids: (id: string) => `/auctions/${id}/bids`,
+    goLive: (id: string) => `/auctions/${encodeURIComponent(id)}/go-live`,
+    pause: (id: string) => `/auctions/${encodeURIComponent(id)}/pause`,
+    resume: (id: string) => `/auctions/${encodeURIComponent(id)}/resume`,
+    eligible: '/auctions/eligible-lots',
+  },
+  lc: {
+    summary: '/letters-of-credit/summary',
+    list: '/letters-of-credit',
+    detail: (id: string) => `/letters-of-credit/${id}`,
+    release: (id: string) => `/letters-of-credit/${id}/release`,
+  },
+  collab: {
+    summary: '/negotiations/summary',
+    negotiations: '/negotiations',
+    contracts: '/contracts',
+    rankings: (role: 'miner' | 'trader') => `/network/rankings?role=${role}&limit=5`,
+  },
+  chain: {
+    events: '/chain/events',
+    network: '/chain/network-status',
+    passports: '/chain/passports/stats?weeks=8',
+    anchor: '/chain/anchors/latest',
+    verifyPassport: '/chain/passports/verify',
+  },
+  users: {
+    list: '/users',
+    detail: (id: string) => `/users/${encodeURIComponent(id)}`,
+    tierRequests: '/tier-requests',
+    tierDecision: (id: string) => `/tier-requests/${encodeURIComponent(id)}/decision`,
+    message: (id: string) => `/users/${encodeURIComponent(id)}/messages`,
+  },
+  compliance: {
+    kyc: '/compliance/kyc',
+    documents: '/compliance/documents',
+    decision: (id: string) => `/compliance/kyc/${encodeURIComponent(id)}/decision`,
+  },
+  disputes: {
+    list: '/disputes',
+    detail: (id: string) => `/disputes/${id}`,
+    messages: (id: string) => `/disputes/${encodeURIComponent(id)}/messages`,
+    resolution: (id: string) => `/disputes/${encodeURIComponent(id)}/resolution`,
+    escalate: (id: string) => `/disputes/${encodeURIComponent(id)}/escalate`,
+  },
+  academy: { categories: '/academy/categories', courses: '/academy/courses', analytics: '/academy/analytics' },
+  marketing: { banners: '/marketing/banners', banner: (id: string) => `/marketing/banners/${encodeURIComponent(id)}` },
   partners: { list: '/partners' },
   support: { tickets: '/support/tickets', calls: '/support/calls' },
-  audit: { log: '/audit-log', export: '/audit-log/export' },
-  financial: { ledger: '/settlements', statement: '/settlements/statement' },
+  audit: { log: '/audit-log', export: '/audit-log/exports' },
+  financial: { summary: '/settlements/summary', ledger: '/settlements', statement: '/settlements/statement' },
   analytics: { summary: '/analytics/summary' },
-  settings: { roles: '/settings/roles', platform: '/settings/platform', btc: '/settings/btc' },
+  settings: { roles: '/settings/roles', platform: '/settings/platform', btc: '/settings/btc/countries' },
   profile: { me: '/me', sessions: '/me/sessions' },
+  shell: { counters: '/dashboard/counters' },
 } as const;

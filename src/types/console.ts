@@ -21,6 +21,8 @@ export interface DrawerConfig {
   done: string;
   draft?: string;
   secondary?: string;
+  /** When set, the drawer waits for the server and shows that result instead of `done`. */
+  onSubmit?: (values: Record<string, string>, draft: boolean) => Promise<string>;
 }
 
 export interface Notice {

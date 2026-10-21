@@ -1,20 +1,101 @@
+import { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BackButton, Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Icon } from '@/components/ui/Icon';
+import { Loader } from '@/components/ui/Loader';
 import { Pill } from '@/components/ui/Pill';
 import { Eyebrow, Text } from '@/components/ui/Text';
 import { ROUTES } from '@/constants/routes';
+import { useRemoteValue } from '@/hooks/useLiveList';
 import { FILTER_DEFAULTS, consoleActions, useConsole } from '@/store/consoleStore';
-import { LIVE, bidFeed } from '@/services/auctions';
+import { apiRequest, isDemoMode } from '@/lib/apiClient';
+import { ENDPOINTS } from '@/lib/endpoints';
+import { formatAuthError } from '@/services/auth';
+import { LIVE, bidFeed, getAuction, getAuctionBids, type AuctionBid, type AuctionView } from '@/services/auctions';
+import { refreshCounters } from '@/services/shell/counters';
 import styles from '../Auctions.module.css';
 import layout from '@/styles/layout.module.css';
+
+function LiveMonitor({ auction, bids, onReload }: { auction: AuctionView; bids: AuctionBid[]; onReload: () => void }) {
+  const navigate = useNavigate();
+  const [reason, setReason] = useState('');
+  const act = (path: string, body: unknown, fallback: string) => {
+    void apiRequest<{ message?: string }>(path, { method: 'POST', body: JSON.stringify(body) })
+      .then((saved) => {
+        consoleActions.notify(saved.message || fallback);
+        refreshCounters();
+        onReload();
+      })
+      .catch((err: unknown) => consoleActions.notify(formatAuthError(err, 'The auction was not changed.')));
+  };
+  return (
+    <div className={layout.stack16}>
+      <BackButton onClick={() => navigate(ROUTES.auctions)}>Back to live auctions</BackButton>
+      <Card radius={20} padding="22px 24px">
+        <Text as="h2" font="display" size={17} weight={700} tone="ink" style={{ margin: 0 }}>
+          {auction.id} · {auction.status.replace(/_/g, ' ')}
+        </Text>
+        <Text size={12} weight={600} tone="ink3" style={{ marginTop: 6 }}>
+          {auction.mineral} · {auction.quantity} · lot {auction.lotId} · {auction.bidCount} bids from {auction.bidderCount} bidders · leader {auction.leader}
+        </Text>
+        <div className={layout.metrics3} style={{ marginTop: 18 }}>
+          <Text size={12.5} weight={700} tone="ink">Current bid {auction.currentBid}</Text>
+          <Text size={12.5} weight={700} tone="ink">Reserve {auction.reserve}</Text>
+          <Text size={12.5} weight={700} tone="ink">Ends {auction.endsAt}</Text>
+        </div>
+      </Card>
+      <Card radius={20} padding="20px 24px">
+        <Eyebrow>BIDS</Eyebrow>
+        {bids.length === 0 ? (
+          <Text size={12.5} weight={600} tone="ink3" style={{ marginTop: 12 }}>No bids are stored.</Text>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+            {bids.map((bid) => (
+              <Text key={bid.id} size={12.5} weight={600} tone="ink2">
+                {bid.amount} · {bid.bidder} · {bid.at}
+              </Text>
+            ))}
+          </div>
+        )}
+        <label htmlFor="auction-reason" style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 16 }}>
+          <Text size={12} weight={700} tone="ink">Reason</Text>
+          <input id="auction-reason" className="mb-field" value={reason} onChange={(event) => setReason(event.target.value)} />
+        </label>
+        <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+          <Button variant="primary" h={40} r={12} onClick={() => {
+            if (reason.trim().length < 3) {
+              consoleActions.notify('Pausing an auction needs a reason of at least 3 characters. Nothing was saved.');
+              return;
+            }
+            act(ENDPOINTS.auctions.pause(auction.id), { reason: reason.trim() }, `${auction.id} paused`);
+          }}>Pause</Button>
+          <Button variant="outline" h={40} r={12} onClick={() => act(ENDPOINTS.auctions.resume(auction.id), reason.trim() ? { reason: reason.trim() } : {}, `${auction.id} resumed`)}>Resume</Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
 
 export default function AuctionMonitorPage() {
   const { auctionId } = useParams();
   const navigate = useNavigate();
   const paused = useConsole((s) => s.paused);
   const flagged = useConsole((s) => s.flagged);
+  const auctionRemote = useRemoteValue(useCallback((signal?: AbortSignal) => getAuction(auctionId ?? '', signal), [auctionId]));
+  const bidRemote = useRemoteValue(useCallback((signal?: AbortSignal) => getAuctionBids(auctionId ?? '', signal), [auctionId]));
+  if (!isDemoMode()) {
+    if (auctionRemote.loading || bidRemote.loading) return <Loader label="Loading auction" />;
+    if (auctionRemote.error || !auctionRemote.data) {
+      return (
+        <div className={layout.stack16}>
+          <BackButton onClick={() => navigate(ROUTES.auctions)}>Back to live auctions</BackButton>
+          <p role="alert">{auctionRemote.error || 'This auction was not found.'}</p>
+        </div>
+      );
+    }
+    return <LiveMonitor auction={auctionRemote.data} bids={bidRemote.data ?? []} onReload={() => { auctionRemote.reload(); bidRemote.reload(); }} />;
+  }
   const mon = LIVE.find((a) => a.id === auctionId) ?? LIVE[0];
   const { bids, reserve } = bidFeed(mon);
   const isPaused = !!paused[mon.id];

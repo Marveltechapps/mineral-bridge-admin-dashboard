@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Loader } from '@/components/ui/Loader';
 import { PAGE_TITLES } from '@/constants/nav';
+import { isDemoMode } from '@/lib/apiClient';
 import { ROUTES, moduleFromPath } from '@/constants/routes';
 import { useSessionState } from '@/modules/auth/hooks/useSession';
 import styles from './AdminLayout.module.css';
@@ -20,7 +21,23 @@ export function AdminLayout() {
   if (stage === 'out') return <Navigate to={ROUTES.signedOut} replace />;
   if (stage !== 'app') return <Navigate to={ROUTES.login} replace state={{ from: location.pathname }} />;
 
-  const [title, sub] = PAGE_TITLES[moduleFromPath(location.pathname)];
+  const moduleId = moduleFromPath(location.pathname);
+  const [title, designSub] = PAGE_TITLES[moduleId];
+  const liveSub: Partial<Record<typeof moduleId, string>> = {
+    overview: 'Trading desk snapshot',
+    orders: 'One pipeline, both sides',
+    vault: 'Lots in custody',
+    listings: 'Minerals on sale at a fixed price',
+    auctions: 'Live, upcoming and ended auctions',
+    users: 'Accounts and tier changes',
+    verification: 'KYC queue and document expiry',
+    disputes: 'Open and resolved disputes',
+    academy: 'Courses and completion',
+    partners: 'Carriers, hubs and assay labs',
+    support: 'Tickets and logged calls',
+    lc: 'Letters of credit',
+  };
+  const sub = isDemoMode() ? designSub : (liveSub[moduleId] ?? designSub);
 
   return (
     <div className={styles.shell}>

@@ -1,17 +1,60 @@
+import { useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BackButton, Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Loader } from '@/components/ui/Loader';
 import { KeyValue, MetricBox } from '@/components/ui/Misc';
 import { Pill } from '@/components/ui/Pill';
 import { Eyebrow, Text } from '@/components/ui/Text';
 import { ROUTES } from '@/constants/routes';
+import { useRemoteValue } from '@/hooks/useLiveList';
 import { consoleActions } from '@/store/consoleStore';
-import { ENDED } from '@/services/auctions';
+import { isDemoMode } from '@/lib/apiClient';
+import { ENDED, getAuction, type AuctionView } from '@/services/auctions';
 import layout from '@/styles/layout.module.css';
+
+function LiveResolution({ auction }: { auction: AuctionView }) {
+  const navigate = useNavigate();
+  return (
+    <div className={layout.stack16}>
+      <BackButton onClick={() => navigate(ROUTES.auctionsEnded)}>Back to ended auctions</BackButton>
+      <Card radius={20} padding="22px 24px">
+        <Text as="h2" font="display" size={17} weight={700} tone="ink" style={{ margin: 0 }}>
+          {auction.id} · {auction.outcome.replace(/_/g, ' ')}
+        </Text>
+        <Text size={12} weight={600} tone="ink3" style={{ marginTop: 6 }}>
+          {auction.mineral} · {auction.quantity} · lot {auction.lotId} · winner {auction.winner}
+        </Text>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 16 }}>
+          <KeyValue k="Final bid" v={auction.finalBid} />
+          <KeyValue k="Reserve" v={auction.reserve} />
+          <KeyValue k="Current bid" v={auction.currentBid} />
+          <KeyValue k="Closed" v={auction.endsAt} />
+        </div>
+        <Text size={12} weight={600} tone="ink3" style={{ marginTop: 16 }}>
+          Relisting and escalation are not submitted from this screen. The stored outcome is shown above.
+        </Text>
+      </Card>
+    </div>
+  );
+}
 
 export default function AuctionResolutionPage() {
   const { auctionId } = useParams();
   const navigate = useNavigate();
+  const remote = useRemoteValue(useCallback((signal?: AbortSignal) => getAuction(auctionId ?? '', signal), [auctionId]));
+  if (!isDemoMode()) {
+    if (remote.loading) return <Loader label="Loading auction" />;
+    if (remote.error || !remote.data) {
+      return (
+        <div className={layout.stack16}>
+          <BackButton onClick={() => navigate(ROUTES.auctionsEnded)}>Back to ended auctions</BackButton>
+          <p role="alert">{remote.error || 'This auction was not found.'}</p>
+        </div>
+      );
+    }
+    return <LiveResolution auction={remote.data} />;
+  }
   const res = ENDED.find((e) => e.id === auctionId) ?? ENDED[0];
   const met = res.tone === 'green';
   const winnerInitials =

@@ -10,7 +10,9 @@ import { STAGES, STAGE_TONES } from '@/constants/tones';
 import { consoleActions } from '@/store/consoleStore';
 import { isDemoMode } from '@/lib/apiClient';
 import { advanceOrder } from '@/services/orders';
-import { orderDetail, useLiveOrders } from '../hooks/useOrders';
+import { refreshCounters } from '@/services/shell/counters';
+import { Loader } from '@/components/ui/Loader';
+import { orderDetail, useOrderFeed } from '../hooks/useOrders';
 import styles from '../Orders.module.css';
 import layout from '@/styles/layout.module.css';
 
@@ -19,8 +21,20 @@ const STATE_COLOR = { done: 'var(--okInk2)', current: 'var(--infoInk)', upcoming
 export default function OrderDetailPage() {
   const { orderId } = useParams();
   const navigate = useNavigate();
-  const orders = useLiveOrders();
-  const sel = orders.find((o) => o.id === orderId) ?? orders[0];
+  const { orders, loading } = useOrderFeed();
+  const found = orders.find((o) => o.id === orderId);
+  const sel = isDemoMode() ? (found ?? orders[0]) : found;
+  if (loading) return <Loader label="Loading orders" />;
+  if (!sel) {
+    return (
+      <div className={layout.stack16}>
+        <BackButton onClick={() => navigate(ROUTES.orders)}>Back to order list</BackButton>
+        <Text size={12.5} weight={600} tone="ink3">
+          {isDemoMode() ? 'No orders match this filter or search.' : 'This order was not found.'}
+        </Text>
+      </div>
+    );
+  }
   const d = orderDetail(sel);
   const ex = d.ex;
 
@@ -32,7 +46,10 @@ export default function OrderDetailPage() {
     };
     if (isDemoMode()) return applyLocal();
     void advanceOrder(sel.id, sel.idx)
-      .then(applyLocal)
+      .then(() => {
+        applyLocal();
+        refreshCounters();
+      })
       .catch((error: unknown) => consoleActions.notify(error instanceof Error ? error.message : 'Could not advance the order'));
   };
 
@@ -240,7 +257,7 @@ export default function OrderDetailPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 18, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,.12)' }}>
               <KeyValue k="Contact" v={ex?.contact || '—'} kColor="rgba(255,255,255,.6)" vTone="inherit" />
               <KeyValue k="Phone" v={ex?.phone || '—'} kColor="rgba(255,255,255,.6)" vTone="inherit" />
-              <KeyValue k="Completed orders" v={`${ex?.done || 0} · no disputes`} kColor="rgba(255,255,255,.6)" vTone="inherit" />
+              <KeyValue k="Completed orders" v={isDemoMode() ? `${ex?.done || 0} · no disputes` : '—'} kColor="rgba(255,255,255,.6)" vTone="inherit" />
               <KeyValue
                 k="KYC"
                 kColor="rgba(255,255,255,.6)"

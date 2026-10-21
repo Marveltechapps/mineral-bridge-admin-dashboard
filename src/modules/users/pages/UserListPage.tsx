@@ -8,8 +8,10 @@ import { Pill } from '@/components/ui/Pill';
 import { Text } from '@/components/ui/Text';
 import { ROUTES } from '@/constants/routes';
 import { useQueryMatch, useSorted } from '@/hooks/useConsoleData';
+import { useLiveList } from '@/hooks/useLiveList';
+import { Loader } from '@/components/ui/Loader';
 import { useConsole } from '@/store/consoleStore';
-import { ACCOUNTS, TIER_TONE, USER_FILTERS, initialsOfName } from '@/services/users';
+import { ACCOUNTS, TIER_TONE, USER_FILTERS, getAccounts, initialsOfName } from '@/services/users';
 import layout from '@/styles/layout.module.css';
 
 const COLS = '2fr .8fr 1.1fr .7fr 1fr .5fr';
@@ -18,14 +20,18 @@ export default function UserListPage() {
   const navigate = useNavigate();
   const match = useQueryMatch();
   const filter = useConsole((s) => s.filters.userFilter);
+  const live = useLiveList(getAccounts, ACCOUNTS);
   const rows = useSorted(
-    ACCOUNTS.filter((u) => (filter === 'All tiers' || filter === `Tier ${u.tier}` || filter === u.status) && match([u.name, u.org, u.email, `tier ${u.tier}`, u.status])),
+    live.rows.filter((u) => (filter === 'All tiers' || filter === `Tier ${u.tier}` || filter === u.status) && match([u.name, u.org, u.email, `tier ${u.tier}`, u.status])),
     'users',
     { name: (u) => u.name, tier: (u) => u.tier, status: (u) => u.status, orders: (u) => u.orders, joined: (u) => u.joined.split(' ').reverse().join('') },
   );
 
+  if (live.loading) return <Loader label="Loading accounts" />;
+
   return (
     <div className={layout.stack14}>
+      {live.error && <p role="alert">{live.error}</p>}
       <FilterChips filterKey="userFilter" options={USER_FILTERS} label="Filter accounts" />
       <Card clip>
         <DataTable
@@ -45,7 +51,7 @@ export default function UserListPage() {
           }
         >
           {rows.map((u) => (
-            <DataRow key={u.name} onClick={() => navigate(ROUTES.user(u.name))} label={`Open account ${u.name}`}>
+            <DataRow key={u.id || u.name} onClick={() => navigate(ROUTES.user(u.id || u.name))} label={`Open account ${u.name}`}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
                 <Initials text={initialsOfName(u.name)} size={34} radius={12} fs={11.5} />
                 <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -72,7 +78,7 @@ export default function UserListPage() {
           ))}
         </DataTable>
         <TableFooter>
-          Showing {rows.length} of {ACCOUNTS.length} accounts
+          Showing {rows.length} of {live.rows.length} accounts
         </TableFooter>
         {rows.length === 0 && <TableEmpty>No accounts match this filter or search.</TableEmpty>}
       </Card>

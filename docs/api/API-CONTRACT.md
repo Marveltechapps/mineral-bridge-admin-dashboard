@@ -341,10 +341,23 @@ List endpoints return `Page<T>` unless stated otherwise.
 ```json
 // Request
 { "email": "grace.kioko@mineralbridge.co.ke", "password": "••••••••" }
-// 200
-{ "challengeId": "chl_8f2a…", "channel": "sms", "maskedDestination": "+254 722 •• 4419", "expiresAt": "2026-10-16T09:05:00Z", "resendAvailableAt": "2026-10-16T09:00:30Z" }
+// 200 — session cookie, X-CSRF-Token, and the signed-in profile
+{ "me": { "name": "Grace Kioko", "email": "grace.kioko@mineralbridge.co.ke", "csrfToken": "…" }, "redirectTo": "/overview" }
 ```
+A correct password opens the console session. It does not start a verification-code step. `POST /auth/otp/verify` remains for a challenge that was already issued.
 Errors: `422 validation/failed` (empty email/password → "Enter your work email and password."), `401 auth/invalid-credentials` (the server must not say whether the email exists), `403 auth/account-disabled`.
+
+#### Development login
+
+`GET /auth/dev-login`, `POST /auth/dev-login` and `POST /auth/dev-login/verify` are available only when the API process has `NODE_ENV=development` and `DEV_LOGIN_ENABLED=true`, with `DEV_ADMIN_LOGIN_EMAIL`, `DEV_ADMIN_LOGIN_PASSWORD` and an explicit `DEV_ADMIN_PERMISSIONS` mapping. Production returns `404 auth/dev-login-disabled` even if the flag is set. The admin email must be different from the application developer email. Permissions that are not listed stay `none`, and the session still passes through the normal staff cookie, CSRF header and route guards.
+
+```json
+{ "challengeId": "chl_…", "channel": "development", "maskedDestination": "Shown on this screen", "expiresAt": "…", "resendAvailableAt": "…", "codeLength": 6, "developmentOtp": "••••••" }
+```
+
+Verification returns the same `{ me, redirectTo }` body as staff OTP verification. Application developer credentials are `401 auth/invalid-credentials` on this route.
+
+When `NODE_ENV=development` and `DEV_OTP_ENABLED=true`, `POST /auth/otp/resend` includes `developmentOtp`. Password sign-in does not. That setting is separate from `DEV_LOGIN_ENABLED`. Production omits the field and delivers codes through the configured provider. The field is not stored in session storage.
 
 #### #2 `POST /auth/sso/start`
 ```json

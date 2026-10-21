@@ -10,18 +10,35 @@ export interface LiveOrder extends Omit<OrderRow, 'stage'> {
   idx: number;
 }
 
+export interface OrderFeed {
+  orders: LiveOrder[];
+  /** True while an API-mode list request is still in flight. */
+  loading: boolean;
+}
+
 /** Orders with the desk's in-session stage advances applied (design: stageAdv). */
-export function useLiveOrders(): LiveOrder[] {
+export function useOrderFeed(): OrderFeed {
   const adv = useConsole((s) => s.stageAdv);
   const [remote, setRemote] = useState<OrderRow[] | null>(null);
+  const [loadError, setLoadError] = useState<unknown>(null);
   useEffect(() => {
     if (isDemoMode()) return;
     const ac = new AbortController();
-    getOrders(ac.signal).then(setRemote).catch(() => setRemote([]));
+    setLoadError(null);
+    getOrders(ac.signal)
+      .then((rows) => {
+        if (!ac.signal.aborted) setRemote(rows);
+      })
+      .catch((error: unknown) => {
+        if (ac.signal.aborted) return;
+        setLoadError(error instanceof Error ? error : new Error('Could not load orders'));
+      });
     return () => ac.abort();
   }, [adv]);
+  if (loadError) throw loadError;
+  const loading = !isDemoMode() && remote === null;
   const source = isDemoMode() ? ORDERS : (remote ?? []);
-  return useMemo(
+  const orders = useMemo(
     () =>
       source.map((r) => {
         const base = STAGES.indexOf(r.stage);
@@ -30,10 +47,60 @@ export function useLiveOrders(): LiveOrder[] {
       }),
     [adv, source],
   );
+  return { orders, loading };
+}
+
+export function useLiveOrders(): LiveOrder[] {
+  return useOrderFeed().orders;
+}
+
+function initialsOf(party: string): string {
+  return party
+    .split(' ')
+    .map((x) => x[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+/** Live orders have no design narrative. Show only fields stored on the order. */
+function liveOrderDetail(sel: LiveOrder) {
+  const isSell = sel.side === 'Sell';
+  const tracker = STAGES.map((name, i) => {
+    const state: 'done' | 'current' | 'upcoming' = i < sel.idx ? 'done' : i === sel.idx ? 'current' : 'upcoming';
+    return { title: name, desc: state === 'current' ? 'Current stage' : state === 'done' ? 'Completed' : 'Not reached', time: '—', agent: '—', state };
+  });
+  return {
+    ex: undefined,
+    isSell,
+    agentName: '—',
+    tracker,
+    routeStep: -1,
+    routeStops: [] as Array<{ name: string; place: string; time: string; state: 'done' | 'current' | 'upcoming' }>,
+    facts: [
+      ['Order ID', sel.id],
+      ['Side', isSell ? 'Sell — MB buys into vault' : 'Buy — draws down from vault'],
+      ['Mineral', sel.mineral],
+      ['Declared quantity', sel.qty],
+      ['Counterparty', sel.party],
+      ['Stage', STAGES[sel.idx] ?? '—'],
+      ['Days in stage', String(sel.days)],
+    ] as Array<[string, string]>,
+    timeline: [] as Array<{ text: string; meta: string }>,
+    docs: [] as Array<{ name: string; ref: string; status: string; tone: 'green' | 'blue' }>,
+    stageLine: `Stage ${sel.idx + 1} of 6 · ${sel.days} days in the current stage`,
+    routeLabel: isSell ? 'CUSTODY TRANSFER · SELLER → VAULT' : 'CUSTODY TRANSFER · VAULT → BUYER',
+    routeEta: 'This order record does not include a custody route.',
+    initials: initialsOf(sel.party),
+    tierLine: `TIER ${sel.tier}`,
+    rateLine: 'No locked rate is stored on this order summary.',
+    qtyLine: `${sel.qty} ${sel.mineral}`.toUpperCase(),
+  };
 }
 
 /** Derived detail model for one order (stage timestamps, route, documents…). */
 export function orderDetail(sel: LiveOrder) {
+  if (!isDemoMode()) return liveOrderDetail(sel);
   const ex = ORDER_EXTRA[sel.id];
   const isSell = sel.side === 'Sell';
   const openDay = parseInt((ex?.opened || '04 Sep 2026').split(' ')[0], 10);
@@ -133,12 +200,7 @@ export function orderDetail(sel: LiveOrder) {
     stageLine: `Stage ${sel.idx + 1} of 6 · ${sel.days} days in current stage · opened ${ex?.opened || '—'}`,
     routeLabel: isSell ? 'CUSTODY TRANSFER · SELLER → VAULT' : 'CUSTODY TRANSFER · VAULT → BUYER',
     routeEta: sel.idx < 5 ? 'Not released — goods stay on site until payment clears' : routeStep >= 3 ? 'Delivered · custody complete' : `In transit · ETA ${stampFor(5).split(' · ')[0]}`,
-    initials: sel.party
-      .split(' ')
-      .map((x) => x[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase(),
+    initials: initialsOf(sel.party),
     tierLine: `TIER ${sel.tier}${tierNum === 1 ? ' · INDIVIDUAL' : tierNum === 2 ? ' · SMALL GROUP / SME' : ' · REGISTERED COMPANY'}`,
     rateLine: `Locked at ${ex?.rate || '—'}${sel.idx < 5 ? ' · subject to assay' : ' · settled'}`,
     qtyLine: `${sel.qty} ${sel.mineral}`.toUpperCase(),

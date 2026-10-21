@@ -9,7 +9,8 @@ import { Text } from '@/components/ui/Text';
 import { ROUTES } from '@/constants/routes';
 import { useQueryMatch, useSorted } from '@/hooks/useConsoleData';
 import { consoleActions, useConsole } from '@/store/consoleStore';
-import { CALLS, TICKETS } from '@/services/support';
+import { useLiveList } from '@/hooks/useLiveList';
+import { CALLS, TICKETS, getCalls, getTickets } from '@/services/support';
 import layout from '@/styles/layout.module.css';
 
 export function SupportShell() {
@@ -57,8 +58,9 @@ export function SupportShell() {
 export function TicketsPage() {
   const match = useQueryMatch();
   const filter = useConsole((s) => s.filters.ticketFilter);
+  const live = useLiveList(getTickets, TICKETS);
   const rows = useSorted(
-    TICKETS.filter((t) => (filter === 'All tickets' || t.status === filter) && match([t.id, t.subject, t.user, t.link, t.status, t.owner])),
+    live.rows.filter((t) => (filter === 'All tickets' || t.status === filter) && match([t.id, t.subject, t.user, t.link, t.status, t.owner])),
     'tickets',
     { id: (t) => t.id, status: (t) => t.status, owner: (t) => t.owner, age: (t) => (t.age.indexOf('d') > 0 ? 100 : 0) + parseFloat(t.age) },
   );
@@ -114,8 +116,9 @@ export function TicketsPage() {
 
 export function CallsPage() {
   const match = useQueryMatch();
+  const live = useLiveList(getCalls, CALLS);
   const rows = useSorted(
-    CALLS.filter((c) => match([c.who, c.phone, c.topic, c.agent])),
+    live.rows.filter((c) => match([c.who, c.phone, c.topic, c.agent])),
     'calls',
     { time: (c) => c.time, who: (c) => c.who, dur: (c) => parseFloat(c.dur), agent: (c) => c.agent },
   );

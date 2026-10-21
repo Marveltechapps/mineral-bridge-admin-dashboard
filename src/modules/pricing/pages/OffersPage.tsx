@@ -6,7 +6,12 @@ import { EmptyCard } from '@/components/ui/Misc';
 import { Text } from '@/components/ui/Text';
 import { useQueryMatch } from '@/hooks/useConsoleData';
 import { consoleActions, useConsole } from '@/store/consoleStore';
-import { OFFERS } from '@/services/pricing';
+import { useLiveList } from '@/hooks/useLiveList';
+import { apiRequest, isDemoMode } from '@/lib/apiClient';
+import { ENDPOINTS } from '@/lib/endpoints';
+import { formatAuthError } from '@/services/auth';
+import { OFFERS, getOffers } from '@/services/pricing';
+import { refreshCounters } from '@/services/shell/counters';
 import styles from '../Pricing.module.css';
 import layout from '@/styles/layout.module.css';
 
@@ -14,10 +19,31 @@ import layout from '@/styles/layout.module.css';
 export default function OffersPage() {
   const match = useQueryMatch();
   const done = useConsole((s) => s.offerDone);
-  const cards = OFFERS.filter((o) => !done[o.id] && match([o.id, o.party, o.mineral]));
+  const live = useLiveList(getOffers, OFFERS);
+  const cards = live.rows.filter((o) => !done[o.id] && match([o.id, o.party, o.mineral]));
   const decide = (id: string, outcome: string, text: string) => {
-    consoleActions.notify(text);
-    consoleActions.set((s) => ({ offerDone: { ...s.offerDone, [id]: outcome } }));
+    if (isDemoMode()) {
+      consoleActions.notify(text);
+      consoleActions.set((s) => ({ offerDone: { ...s.offerDone, [id]: outcome } }));
+      return;
+    }
+    if (outcome === 'adjusted') {
+      consoleActions.notify('An adjusted offer needs an amount the server can store. Nothing was sent.');
+      return;
+    }
+    const decision = outcome === 'held' ? 'hold' : 'approve';
+    void apiRequest<{ message?: string }>(ENDPOINTS.pricing.offerDecision(id), {
+      method: 'POST',
+      headers: { 'Idempotency-Key': crypto.randomUUID() },
+      body: JSON.stringify(decision === 'approve' ? { decision } : { decision, reason: text }),
+    })
+      .then((saved) => {
+        consoleActions.notify(saved.message || text);
+        consoleActions.set((s) => ({ offerDone: { ...s.offerDone, [id]: outcome } }));
+        live.reload();
+        refreshCounters();
+      })
+      .catch((err: unknown) => consoleActions.notify(formatAuthError(err, 'The offer decision was not saved.')));
   };
 
   return (

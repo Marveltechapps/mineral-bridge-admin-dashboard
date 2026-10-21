@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BackButton, Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -9,28 +10,46 @@ import { Bar, KeyValue, ListButton, MetricBox } from '@/components/ui/Misc';
 import { Pill } from '@/components/ui/Pill';
 import { Eyebrow, Text } from '@/components/ui/Text';
 import { ROUTES } from '@/constants/routes';
+import { Loader } from '@/components/ui/Loader';
 import { useEditGate } from '@/hooks/useEditGate';
+import { useRemoteValue } from '@/hooks/useLiveList';
 import { consoleActions } from '@/store/consoleStore';
 import { numeric } from '@/lib/collection';
-import { LISTINGS, unitOf } from '@/services/listings';
+import { apiRequest, isDemoMode } from '@/lib/apiClient';
+import { ENDPOINTS } from '@/lib/endpoints';
+import { formatAuthError } from '@/services/auth';
+import { LISTINGS, getListing, unitOf } from '@/services/listings';
+import { refreshCounters } from '@/services/shell/counters';
 import layout from '@/styles/layout.module.css';
 
 export default function ListingDetailPage() {
   const { listingId } = useParams();
   const navigate = useNavigate();
+  const remote = useRemoteValue(useCallback((signal?: AbortSignal) => getListing(listingId ?? '', signal), [listingId]));
   const gate = useEditGate('listingCfg', 'Listing configuration saved');
-  const sel = LISTINGS.find((l) => l.id === listingId) ?? LISTINGS[0];
+  const fixture = LISTINGS.find((l) => l.id === listingId) ?? LISTINGS[0];
+  if (!isDemoMode() && remote.loading) return <Loader label="Loading listing" />;
+  if (!isDemoMode() && (remote.error || !remote.data)) {
+    return (
+      <div className={layout.stack16}>
+        <BackButton onClick={() => navigate(ROUTES.listings)}>Back to catalog listings</BackButton>
+        <p role="alert">{remote.error || 'This listing was not found.'}</p>
+      </div>
+    );
+  }
+  const sel = isDemoMode() ? { ...fixture, priceFloor: '', minParcelLabel: '10% of listing', description: '' } : remote.data!;
   const unit = unitOf(sel);
   const soldPct = (1 - numeric(sel.qtyLeft) / numeric(sel.qtyTotal)) * 100;
   const price = `${sel.price} / ${unit}`;
-  const floor = `$${Math.round(numeric(sel.price) * 0.94).toLocaleString('en-US')}`;
+  const floor = isDemoMode() ? `$${Math.round(numeric(sel.price) * 0.94).toLocaleString('en-US')}` : sel.priceFloor;
+  const minParcel = isDemoMode() ? '10% of listing' : sel.minParcelLabel;
   const featured = sel.featured ? 'Yes' : 'No';
 
   const configFields: Array<[string, string]> = [
     [`ASK PRICE PER ${unit}`, price],
     ['PRICE FLOOR (AUTO-PAUSE BELOW)', floor],
     ['QUANTITY OFFERED', sel.qtyLeft],
-    ['MINIMUM PARCEL SIZE', '10% of listing'],
+    ['MINIMUM PARCEL SIZE', minParcel],
     ['BUYER ACCESS', sel.access],
     ['FEATURED IN CATALOG', featured],
   ];
@@ -105,7 +124,7 @@ export default function ListingDetailPage() {
                 className="mb-field"
                 rows={3}
                 readOnly={gate.readOnly}
-                defaultValue="Vault-held parcel, assayed on intake and stored under bonded custody. Certificate available to verified buyers on request."
+                defaultValue={isDemoMode() || !sel.description ? 'Vault-held parcel, assayed on intake and stored under bonded custody. Certificate available to verified buyers on request.' : sel.description}
                 style={{ ...gate.field, height: 'auto', padding: '11px 13px', fontWeight: 500, lineHeight: 1.55, resize: 'vertical', outline: 'none' }}
               />
             </Field>
@@ -151,7 +170,21 @@ export default function ListingDetailPage() {
                 h={46}
                 r={14}
                 fs={13.5}
-                onClick={() => consoleActions.notify(sel.id + (sel.status === 'Paused' ? ' resumed — visible in the catalog' : ' paused — hidden from buyers'))}
+                onClick={() => {
+                  const paused = sel.status === 'Paused';
+                  if (isDemoMode()) {
+                    consoleActions.notify(sel.id + (paused ? ' resumed — visible in the catalog' : ' paused — hidden from buyers'));
+                    return;
+                  }
+                  const path = paused ? ENDPOINTS.listings.resume(sel.id) : ENDPOINTS.listings.pause(sel.id);
+                  void apiRequest<{ message?: string }>(path, { method: 'POST', body: '{}' })
+                    .then((saved) => {
+                      consoleActions.notify(saved.message || (paused ? `${sel.id} resumed` : `${sel.id} paused`));
+                      remote.reload();
+                      refreshCounters();
+                    })
+                    .catch((err: unknown) => consoleActions.notify(formatAuthError(err, 'The listing was not changed.')));
+                }}
               >
                 {sel.status === 'Paused' ? 'Resume listing' : 'Pause listing'}
               </Button>
@@ -162,7 +195,7 @@ export default function ListingDetailPage() {
                 fs={13}
                 onClick={() => {
                   consoleActions.set({ createLot: sel.lot });
-                  consoleActions.notify(`Lot ${sel.lot} moved from catalog to a new auction`);
+                  if (isDemoMode()) consoleActions.notify(`Lot ${sel.lot} moved from catalog to a new auction`);
                   navigate(ROUTES.auctionCreate);
                 }}
               >
@@ -174,8 +207,18 @@ export default function ListingDetailPage() {
                 r={13}
                 fs={13}
                 onClick={() => {
-                  consoleActions.notify(`${sel.id} ended — lot returned to vault reserve`);
-                  navigate(ROUTES.listings);
+                  if (isDemoMode()) {
+                    consoleActions.notify(`${sel.id} ended — lot returned to vault reserve`);
+                    navigate(ROUTES.listings);
+                    return;
+                  }
+                  void apiRequest<{ message?: string }>(ENDPOINTS.listings.end(sel.id), { method: 'POST', body: JSON.stringify({ returnLotTo: 'reserve' }) })
+                    .then((saved) => {
+                      consoleActions.notify(saved.message || `${sel.id} ended`);
+                      refreshCounters();
+                      navigate(ROUTES.listings);
+                    })
+                    .catch((err: unknown) => consoleActions.notify(formatAuthError(err, 'The listing was not ended.')));
                 }}
               >
                 End listing

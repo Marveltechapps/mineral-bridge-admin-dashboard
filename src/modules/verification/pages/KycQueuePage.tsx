@@ -9,7 +9,13 @@ import { Text } from '@/components/ui/Text';
 import type { Tone } from '@/constants/tones';
 import { useQueryMatch } from '@/hooks/useConsoleData';
 import { consoleActions, useConsole } from '@/store/consoleStore';
-import { KYC, KYC_FILTERS } from '@/services/verification';
+import { useLiveList } from '@/hooks/useLiveList';
+import { Loader } from '@/components/ui/Loader';
+import { apiRequest, isDemoMode } from '@/lib/apiClient';
+import { ENDPOINTS } from '@/lib/endpoints';
+import { formatAuthError } from '@/services/auth';
+import { KYC, KYC_FILTERS, getKycSubmissions } from '@/services/verification';
+import { refreshCounters } from '@/services/shell/counters';
 import type { KycSubmission } from '@/types/verification';
 import styles from '../Verification.module.css';
 import layout from '@/styles/layout.module.css';
@@ -21,8 +27,20 @@ function KycCard({ k, open, decided }: { k: KycSubmission; open: boolean; decide
   const toggle = () => consoleActions.set({ kycOpen: open ? null : k.id });
   const statusTone: Tone = decided === 'Verified' ? 'green' : decided === 'Rejected' ? 'red' : decided ? 'amber' : k.tone;
   const decide = (outcome: string, text: string) => {
-    consoleActions.notify(text);
-    consoleActions.set((s) => ({ kycDone: { ...s.kycDone, [k.id]: outcome }, kycOpen: null }));
+    if (isDemoMode()) {
+      consoleActions.notify(text);
+      consoleActions.set((s) => ({ kycDone: { ...s.kycDone, [k.id]: outcome }, kycOpen: null }));
+      return;
+    }
+    const decision = outcome === 'Verified' ? 'approve' : outcome === 'Rejected' ? 'reject' : 'request_resubmission';
+    const body = decision === 'approve' ? { decision } : { decision, reason: text };
+    void apiRequest<{ message?: string }>(ENDPOINTS.compliance.decision(k.id), { method: 'POST', body: JSON.stringify(body) })
+      .then((saved) => {
+        consoleActions.notify(saved.message || text);
+        consoleActions.set((s) => ({ kycDone: { ...s.kycDone, [k.id]: outcome }, kycOpen: null }));
+        refreshCounters();
+      })
+      .catch((err: unknown) => consoleActions.notify(formatAuthError(err, 'The decision was not saved.')));
   };
   const bodyId = `kyc-body-${k.id}`;
 
@@ -132,12 +150,15 @@ export default function KycQueuePage() {
   const tierFilter = useConsole((s) => s.filters.verTier);
   const openId = useConsole((s) => s.kycOpen);
   const done = useConsole((s) => s.kycDone);
-  const rows = KYC.filter(
-    (k) => (tierFilter === 'All tiers' || tierFilter.indexOf(`Tier ${k.tier}`) === 0 || (tierFilter === 'Overdue SLA' && k.submitted.indexOf('day') > 0)) && match([k.id, k.org, k.person, `tier ${k.tier}`]),
+  const live = useLiveList(getKycSubmissions, KYC);
+  const rows = live.rows.filter(
+    (k) => (tierFilter === 'All tiers' || tierFilter.indexOf(`Tier ${k.tier}`) === 0 || (tierFilter === 'Overdue SLA' && (k.overdue || k.submitted.indexOf('day') > 0))) && match([k.id, k.org, k.person, `tier ${k.tier}`]),
   );
+  if (live.loading) return <Loader label="Loading KYC queue" />;
 
   return (
     <div className={layout.stack14}>
+      {live.error && <p role="alert">{live.error}</p>}
       <FilterChips filterKey="verTier" options={KYC_FILTERS} label="Filter KYC submissions" />
       {rows.map((k) => (
         <KycCard key={k.id} k={k} open={openId === k.id} decided={done[k.id]} />

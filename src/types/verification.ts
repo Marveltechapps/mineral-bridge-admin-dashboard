@@ -8,6 +8,7 @@ export interface KycSubmission {
   submitted: string;
   status: string;
   tone: Tone;
+  overdue?: boolean;
   docs: Array<{ name: string; ref: string; status: string; tone: Tone }>;
 }
 

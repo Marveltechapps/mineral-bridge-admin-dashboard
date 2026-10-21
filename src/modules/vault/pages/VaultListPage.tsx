@@ -7,8 +7,10 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Text } from '@/components/ui/Text';
 import { ROUTES } from '@/constants/routes';
 import { useQueryMatch, useSorted } from '@/hooks/useConsoleData';
+import { useLiveList } from '@/hooks/useLiveList';
+import { Loader } from '@/components/ui/Loader';
 import { consoleActions, useConsole } from '@/store/consoleStore';
-import { LOTS, VAULT_FILTERS, VAULT_STATS, defaultAllocMode } from '@/services/vault';
+import { LOTS, VAULT_FILTERS, VAULT_STATS, defaultAllocMode, getLots, getVaultStats } from '@/services/vault';
 import layout from '@/styles/layout.module.css';
 
 const COLS = '1.25fr 1.3fr .95fr 1fr 1.2fr 1fr .8fr';
@@ -17,8 +19,10 @@ export default function VaultListPage() {
   const navigate = useNavigate();
   const match = useQueryMatch();
   const status = useConsole((s) => s.filters.vaultStatus);
+  const live = useLiveList(getLots, LOTS);
+  const stats = useLiveList(getVaultStats, VAULT_STATS);
   const rows = useSorted(
-    LOTS.filter((l) => (status === 'All lots' || l.status === status) && match([l.id, l.mineral, l.grade, l.src, l.status])),
+    live.rows.filter((l) => (status === 'All lots' || l.status === status) && match([l.id, l.mineral, l.grade, l.src, l.status])),
     'vault',
     { id: (l) => l.id, mineral: (l) => l.mineral, status: (l) => l.status, days: (l) => l.days },
   );
@@ -26,7 +30,9 @@ export default function VaultListPage() {
   return (
     <div className={layout.stack16}>
       <div className={layout.stats4}>
-        {VAULT_STATS.map((s) => (
+        {(live.loading || stats.loading) && <Loader label="Loading vault" />}
+        {(live.error || stats.error) && <p role="alert">{live.error || stats.error}</p>}
+        {stats.rows.map((s) => (
           <StatCard key={s.label} label={s.label} value={s.value} sub={s.sub} />
         ))}
       </div>
@@ -82,7 +88,7 @@ export default function VaultListPage() {
           ))}
         </DataTable>
         <TableFooter>
-          Showing {rows.length} of {LOTS.length} lots in custody
+          Showing {rows.length} of {live.rows.length} lots in custody
         </TableFooter>
         {rows.length === 0 && <TableEmpty>No lots match this filter or search.</TableEmpty>}
       </Card>

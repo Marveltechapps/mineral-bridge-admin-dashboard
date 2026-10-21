@@ -11,7 +11,8 @@ import { STAGES, STAGE_TONES } from '@/constants/tones';
 import { useQueryMatch, useSorted } from '@/hooks/useConsoleData';
 import { consoleActions, useConsole } from '@/store/consoleStore';
 import { numeric } from '@/lib/collection';
-import { useLiveOrders } from '../hooks/useOrders';
+import { Loader } from '@/components/ui/Loader';
+import { useOrderFeed } from '../hooks/useOrders';
 import styles from '../Orders.module.css';
 import layout from '@/styles/layout.module.css';
 
@@ -20,7 +21,7 @@ const PAGE_SIZE = 6;
 
 export default function OrderListPage() {
   const navigate = useNavigate();
-  const all = useLiveOrders();
+  const { orders: all, loading } = useOrderFeed();
   const match = useQueryMatch();
   const side = useConsole((s) => s.filters.orderSide);
   const stage = useConsole((s) => s.filters.orderStage);
@@ -121,7 +122,9 @@ export default function OrderListPage() {
             </DataRow>
           ))}
         </DataTable>
-        {rows.length === 0 && (
+        {loading ? (
+          <Loader label="Loading orders" />
+        ) : rows.length === 0 ? (
           <div style={{ padding: 34, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
             <Text size={12.5} weight={600} tone="ink3">
               No orders match this filter or search.
@@ -130,7 +133,7 @@ export default function OrderListPage() {
               Clear filters and search
             </Button>
           </div>
-        )}
+        ) : null}
         <div style={{ padding: '13px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', fontSize: 12, fontWeight: 600, color: 'var(--ink3)' }}>
           <span>
             Showing {rows.length} of {filtered.length} matching orders · page {cur + 1} of {maxPage + 1}

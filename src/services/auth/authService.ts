@@ -1,4 +1,4 @@
-import { apiRequest, isDemoMode, setCsrfToken } from '@/lib/apiClient';
+import { ApiError, apiRequest, isDemoMode, setCsrfToken } from '@/lib/apiClient';
 import { ENDPOINTS } from '@/lib/endpoints';
 import type { StaffAccount } from '@/types/auth';
 
@@ -36,6 +36,8 @@ export interface StaffChallenge {
   maskedDestination?: string;
   expiresAt?: string;
   resendAvailableAt?: string;
+  /** Present only when the API enabled local development delivery. */
+  developmentOtp?: string;
 }
 
 export function formatAuthError(error: unknown, fallback: string): string {
@@ -54,14 +56,59 @@ export function staffOtpCopy(maskedDestination: string | null, channel: string |
   return `A 6-digit code was submitted to the ${where} ${maskedDestination}. Delivery is confirmed only when it arrives.`;
 }
 
-export async function signInStaff(email: string, password: string): Promise<StaffChallenge> {
-  return apiRequest<StaffChallenge>(ENDPOINTS.auth.signIn, {
+export interface StaffSignIn {
+  account: StaffAccount;
+  redirectTo: string;
+}
+
+/** Email and password open the staff session. A missing session body is a failed sign-in. */
+export async function signInStaff(email: string, password: string): Promise<StaffSignIn> {
+  const body = await apiRequest<{
+    me?: { name?: string; email?: string; initials?: string; role?: { name?: string; scope?: string }; csrfToken?: string };
+    redirectTo?: string;
+  }>(ENDPOINTS.auth.signIn, {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+  if (!body.me?.csrfToken) {
+    throw new ApiError(500, 'client/malformed-response', undefined, 'Sign-in did not open a session.');
+  }
+  setCsrfToken(body.me.csrfToken);
+  const name = body.me.name || email;
+  return {
+    redirectTo: body.redirectTo?.startsWith('/') ? body.redirectTo : '/overview',
+    account: {
+      name,
+      role: body.me.role?.name || 'Staff',
+      initials: body.me.initials || name.slice(0, 2).toUpperCase(),
+      email: body.me.email || email,
+      demoPassword: '',
+      scope: body.me.role?.scope || 'Operations console',
+    },
+  };
+}
+
+export function fetchDevLoginStatus(): Promise<{ enabled: boolean; codeLength?: number }> {
+  return apiRequest(ENDPOINTS.auth.devLoginStatus);
+}
+
+export function startDevLogin(email: string, password: string): Promise<StaffChallenge & { developmentOtp: string; codeLength: number }> {
+  return apiRequest(ENDPOINTS.auth.devLogin, {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
 }
 
-export async function resendStaffOtp(challengeId: string): Promise<{ maskedDestination?: string; resendAvailableAt?: string }> {
+export async function verifyDevLogin(challengeId: string, code: string): Promise<{ name: string; role: string }> {
+  const body = await apiRequest<{ me?: { name?: string; role?: { name?: string }; csrfToken?: string } }>(
+    ENDPOINTS.auth.devLoginVerify,
+    { method: 'POST', body: JSON.stringify({ challengeId, code: code.replace(/\s/g, '') }) },
+  );
+  if (body.me?.csrfToken) setCsrfToken(body.me.csrfToken);
+  return { name: body.me?.name || 'Development operator', role: body.me?.role?.name || 'Development operator' };
+}
+
+export async function resendStaffOtp(challengeId: string): Promise<{ maskedDestination?: string; resendAvailableAt?: string; developmentOtp?: string }> {
   return apiRequest(ENDPOINTS.auth.resendOtp, {
     method: 'POST',
     body: JSON.stringify({ challengeId }),

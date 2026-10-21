@@ -4,8 +4,10 @@ import { DataRow, DataTable, HeadCell, SortHead, TableEmpty } from '@/components
 import { Pill } from '@/components/ui/Pill';
 import { Text } from '@/components/ui/Text';
 import { useQueryMatch, useSorted } from '@/hooks/useConsoleData';
+import { useLiveList } from '@/hooks/useLiveList';
+import { isDemoMode } from '@/lib/apiClient';
 import { useConsole } from '@/store/consoleStore';
-import { EXPIRY_FILTERS, TRACKED_DOCS } from '@/services/verification';
+import { EXPIRY_FILTERS, TRACKED_DOCS, getTrackedDocuments } from '@/services/verification';
 import styles from '../Verification.module.css';
 import layout from '@/styles/layout.module.css';
 
@@ -14,14 +16,15 @@ const COLS = '1.3fr 1.1fr 1.6fr .7fr 1.2fr 1.4fr 1fr';
 export default function ExpiryPage() {
   const match = useQueryMatch();
   const filter = useConsole((s) => s.filters.expiryFilter);
+  const live = useLiveList(getTrackedDocuments, TRACKED_DOCS);
   const rows = useSorted(
-    TRACKED_DOCS.filter((d) => {
+    live.rows.filter((d) => {
       const pass =
         filter === 'All documents' ||
         (filter === 'Expired' && d.days < 0) ||
         (filter === 'Under 30 days' && d.days >= 0 && d.days <= 30) ||
         (filter === 'Under 90 days' && d.days >= 0 && d.days <= 90) ||
-        (filter === 'In review' && d.status === 'IN REVIEW');
+        (filter === 'In review' && d.status.toUpperCase() === 'IN REVIEW');
       return pass && match([d.type, d.ref, d.holder, d.tier, d.status]);
     }),
     'expiry',
@@ -37,7 +40,7 @@ export default function ExpiryPage() {
             Tracked documents · soonest expiry first
           </Text>
           <Text size={11} weight={700} ls={0.8} tone="warn">
-            3 EXPIRING WITHIN 35 DAYS · 1 EXPIRED
+            {isDemoMode() ? '3 EXPIRING WITHIN 35 DAYS · 1 EXPIRED' : `${live.rows.filter((d) => d.days >= 0 && d.days <= 35).length} EXPIRING WITHIN 35 DAYS · ${live.rows.filter((d) => d.days < 0).length} EXPIRED`}
           </Text>
         </div>
         <DataTable

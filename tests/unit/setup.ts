@@ -1,5 +1,11 @@
 import '@testing-library/jest-dom/vitest';
 import { configure } from '@testing-library/react';
+import { vi } from 'vitest';
+
+// The spreadsheet cases run in demo mode (empty API base). A developer's .env
+// may point at a local API; that must not turn the bundled-data tests into
+// network calls.
+vi.stubEnv('VITE_API_BASE_URL', '');
 
 /**
  * Every console route is `React.lazy` (see `@/app/router/router`), so the first

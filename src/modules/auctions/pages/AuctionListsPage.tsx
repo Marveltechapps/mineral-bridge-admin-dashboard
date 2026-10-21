@@ -10,7 +10,12 @@ import { ROUTES } from '@/constants/routes';
 import { useQueryMatch, useSorted } from '@/hooks/useConsoleData';
 import { consoleActions, useConsole } from '@/store/consoleStore';
 import { numeric } from '@/lib/collection';
-import { AUCTION_FILTERS, ENDED, LIVE, UPCOMING } from '@/services/auctions';
+import { useLiveList } from '@/hooks/useLiveList';
+import { apiRequest, isDemoMode } from '@/lib/apiClient';
+import { ENDPOINTS } from '@/lib/endpoints';
+import { formatAuthError } from '@/services/auth';
+import { AUCTION_FILTERS, ENDED, LIVE, UPCOMING, getEndedAuctions, getLiveAuctions, getUpcomingAuctions } from '@/services/auctions';
+import { refreshCounters } from '@/services/shell/counters';
 import layout from '@/styles/layout.module.css';
 
 /** Live auctions table with flag filter. */
@@ -19,8 +24,9 @@ export function LiveAuctionsPage() {
   const match = useQueryMatch();
   const flaggedNow = useConsole((s) => s.flagged);
   const filter = useConsole((s) => s.filters.aucFilter);
+  const live = useLiveList(getLiveAuctions, LIVE);
   const rows = useSorted(
-    LIVE.filter((a) => {
+    live.rows.filter((a) => {
       const f = a.flagged || flaggedNow[a.id];
       const pass = filter === 'All auctions' || (filter === 'Flagged' && f) || (filter === 'Unflagged' && !f) || (filter === 'Closing today' && a.left.indexOf('d') < 0);
       return pass && match([a.id, a.mineral, a.lot, a.leader]);
@@ -106,7 +112,8 @@ export function LiveAuctionsPage() {
 export function UpcomingAuctionsPage() {
   const navigate = useNavigate();
   const match = useQueryMatch();
-  const rows = UPCOMING.filter((a) => match([a.id, a.mineral, a.lot]));
+  const live = useLiveList(getUpcomingAuctions, UPCOMING);
+  const rows = live.rows.filter((a) => match([a.id, a.mineral, a.lot]));
   const COLS = '1.15fr 1.2fr 1.05fr .8fr 1.05fr 1.05fr 1.2fr 1.5fr';
   return (
     <Card clip>
@@ -166,7 +173,19 @@ export function UpcomingAuctionsPage() {
               >
                 Edit
               </Button>
-              <Button variant="primary" noHover h={30} px={11} r={10} fs={11.5} onClick={() => consoleActions.notify(`${a.id} published — now live`)}>
+              <Button variant="primary" noHover h={30} px={11} r={10} fs={11.5} onClick={() => {
+                if (isDemoMode()) {
+                  consoleActions.notify(`${a.id} published — now live`);
+                  return;
+                }
+                void apiRequest<{ message?: string }>(ENDPOINTS.auctions.goLive(a.id), { method: 'POST', body: '{}' })
+                  .then((saved) => {
+                    consoleActions.notify(saved.message || `${a.id} is now live`);
+                    live.reload();
+                    refreshCounters();
+                  })
+                  .catch((err: unknown) => consoleActions.notify(formatAuthError(err, `${a.id} was not opened.`)));
+              }}>
                 Go live
               </Button>
             </span>
@@ -181,8 +200,9 @@ export function UpcomingAuctionsPage() {
 export function EndedAuctionsPage() {
   const navigate = useNavigate();
   const match = useQueryMatch();
+  const live = useLiveList(getEndedAuctions, ENDED);
   const rows = useSorted(
-    ENDED.filter((e) => match([e.id, e.mineral, e.winner])),
+    live.rows.filter((e) => match([e.id, e.mineral, e.winner])),
     'ended',
     { id: (e) => e.id, final: (e) => numeric(e.final), bids: (e) => e.bids },
   );

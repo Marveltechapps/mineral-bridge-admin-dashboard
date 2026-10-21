@@ -9,7 +9,7 @@ export interface Listing {
   qtyLeft: string;
   price: string;
   value: string;
-  status: 'Live' | 'Paused' | 'Scheduled' | 'Sold out' | 'Draft';
+  status: 'Live' | 'Paused' | 'Scheduled' | 'Sold out' | 'Draft' | 'Ended';
   tone: Tone;
   access: string;
   views: number;

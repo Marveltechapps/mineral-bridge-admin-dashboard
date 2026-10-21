@@ -1,9 +1,10 @@
-import type { ReactNode } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BackButton, Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Icon } from '@/components/ui/Icon';
 import { Field, Input } from '@/components/ui/Input';
+import { Loader } from '@/components/ui/Loader';
 import { KeyValue, MetricBox, PhotoSlot } from '@/components/ui/Misc';
 import { Pill } from '@/components/ui/Pill';
 import { Eyebrow, Text } from '@/components/ui/Text';
@@ -11,8 +12,10 @@ import { StaticToggle } from '@/components/ui/Toggle';
 import { ROUTES } from '@/constants/routes';
 import { consoleActions, useConsole } from '@/store/consoleStore';
 import type { AllocMode } from '@/types/console';
+import { useRemoteValue } from '@/hooks/useLiveList';
 import { money } from '@/lib/collection';
-import { ALLOC_HISTORY, CUSTODY, LOTS, LOT_EXTRA } from '@/services/vault';
+import { isDemoMode } from '@/lib/apiClient';
+import { ALLOC_HISTORY, CUSTODY, LOTS, LOT_EXTRA, getLotDetail, type LotDetailView } from '@/services/vault';
 import layout from '@/styles/layout.module.css';
 
 const STATE_COLOR = { done: 'var(--okInk2)', current: 'var(--infoInk)', upcoming: 'var(--line4)' } as const;
@@ -58,10 +61,98 @@ function SwitchRow({ on, children }: { on: boolean; children: ReactNode }) {
 
 const fieldInput = { h: 40, r: 12, px: 13, fs: 13 } as const;
 
+function LiveLot({ lot }: { lot: LotDetailView }) {
+  const navigate = useNavigate();
+  return (
+    <div className={layout.stack16}>
+      <BackButton onClick={() => navigate(ROUTES.vault)}>Back to inventory</BackButton>
+      <Card radius={20} padding="22px 24px">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
+            <Text as="h2" font="display" size={18} weight={700} tone="ink" style={{ margin: 0 }}>
+              {lot.lot.id} · {lot.lot.mineral}
+            </Text>
+            <Text size={12} weight={600} tone="ink3">
+              {lot.lot.qty} · {lot.lot.grade} · {lot.location} · {lot.lot.days} days held · from {lot.lot.src || '—'}
+            </Text>
+          </div>
+          <Pill tone={lot.lot.tone} fontSize={10}>
+            {lot.lot.status.toUpperCase()}
+          </Pill>
+        </div>
+        <div className={layout.metrics3} style={{ marginTop: 20 }}>
+          <MetricBox label="COST BASIS" value={lot.costBasis} sub={lot.costRate} />
+          <MetricBox label="REALISABLE" value={lot.realisable} sub={lot.liveSellRate} />
+          <MetricBox label="UNREALISED" value={lot.unrealised} sub={lot.unrealisedPct} />
+        </div>
+      </Card>
+      <Card radius={20} padding="20px 24px">
+        <Eyebrow>CHAIN OF CUSTODY</Eyebrow>
+        {lot.custody.length === 0 ? (
+          <Text size={12.5} weight={600} tone="ink3" style={{ marginTop: 12 }}>
+            No custody events are stored for this lot.
+          </Text>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
+            {lot.custody.map((step) => (
+              <div key={`${step.title}-${step.at}`}>
+                <Text size={13} weight={700} tone="ink">
+                  {step.title}
+                </Text>
+                <Text size={12} weight={600} tone="ink3">
+                  {step.description} · {step.actor} · {step.at}
+                </Text>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+      <Card radius={20} padding="20px 24px">
+        <Eyebrow>ASSAY</Eyebrow>
+        <Text size={12.5} weight={600} tone="ink2" style={{ marginTop: 10 }}>
+          {lot.assay}
+        </Text>
+      </Card>
+      <Card radius={20} padding="20px 24px">
+        <Eyebrow>ALLOCATION HISTORY</Eyebrow>
+        {lot.history.length === 0 ? (
+          <Text size={12.5} weight={600} tone="ink3" style={{ marginTop: 12 }}>
+            No allocation history is stored.
+          </Text>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
+            {lot.history.map((step) => (
+              <Text key={`${step.title}-${step.date}`} size={12.5} weight={600} tone="ink2">
+                {step.title} · {step.sub} · {step.date} · {step.amount}
+              </Text>
+            ))}
+          </div>
+        )}
+        <Text size={12} weight={600} tone="ink3" style={{ marginTop: 16 }}>
+          Publishing a listing, holding this lot, or opening an auction is not saved from this screen. Those actions need an ask price, a hold reason, or auction terms this form does not submit.
+        </Text>
+      </Card>
+    </div>
+  );
+}
+
 export default function LotDetailPage() {
   const { lotId } = useParams();
   const navigate = useNavigate();
   const mode = useConsole((s) => s.allocMode);
+  const remote = useRemoteValue(useCallback((signal?: AbortSignal) => getLotDetail(lotId ?? '', signal), [lotId]));
+  if (!isDemoMode()) {
+    if (remote.loading) return <Loader label="Loading lot" />;
+    if (remote.error || !remote.data) {
+      return (
+        <div className={layout.stack16}>
+          <BackButton onClick={() => navigate(ROUTES.vault)}>Back to inventory</BackButton>
+          <p role="alert">{remote.error || 'This lot was not found.'}</p>
+        </div>
+      );
+    }
+    return <LiveLot lot={remote.data} />;
+  }
   const sel = LOTS.find((l) => l.id === lotId) ?? LOTS[0];
   const [costRate, liveRate, unit, bay, cert, lab, assayDate, net] = LOT_EXTRA[sel.id] ?? LOT_EXTRA['MBV-2026-0417'];
   const cost = costRate * net;

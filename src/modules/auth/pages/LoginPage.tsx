@@ -1,4 +1,4 @@
-import { useRef, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
@@ -12,11 +12,13 @@ import { sessionActions, useSessionState } from '../hooks/useSession';
 import {
   STAFF_ACCOUNTS,
   authenticateDemo,
+  fetchDevLoginStatus,
   formatAuthError,
   isDemoMode,
   requestStaffPasswordReset,
   resolveSso,
   signInStaff,
+  startDevLogin,
   startStaffSso,
 } from '@/services/auth';
 import styles from './Auth.module.css';
@@ -34,28 +36,65 @@ export default function LoginPage() {
   const error = useSessionState((s) => s.authError);
   const credsOpen = useSessionState((s) => s.credsOpen);
   const dark = useConsole((s) => s.theme === 'dark');
+  const [devAvailable, setDevAvailable] = useState(false);
+  const [devMode, setDevMode] = useState(false);
+
+  useEffect(() => {
+    if (isDemoMode()) return;
+    let cancelled = false;
+    void fetchDevLoginStatus()
+      .then((status) => {
+        if (!cancelled) setDevAvailable(status.enabled === true);
+      })
+      .catch(() => {
+        if (!cancelled) setDevAvailable(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const signIn = (e?: FormEvent) => {
     e?.preventDefault();
     const email = emailRef.current?.value ?? '';
     const password = passRef.current?.value ?? '';
     if (!isDemoMode()) {
+      if (!email.trim() || !password) {
+        sessionActions.setError('Enter your work email and password.');
+        return;
+      }
       sessionActions.setError(null);
-      void signInStaff(email, password)
-        .then((challenge) => {
-          sessionActions.toLiveOtp(
-            challenge.challengeId,
-            {
-              name: email,
-              role: 'Staff',
-              initials: email.slice(0, 2).toUpperCase(),
-              email,
-              demoPassword: '',
-              scope: 'Operations console',
-            },
-            challenge,
-          );
-          navigate(ROUTES.verify);
+      if (devMode) {
+        if (passRef.current) passRef.current.value = '';
+        void startDevLogin(email.trim(), password)
+          .then((challenge) => {
+            if (!challenge.developmentOtp) {
+              sessionActions.setError('The server did not return a development code');
+              return;
+            }
+            sessionActions.toLiveOtp(
+              challenge.challengeId,
+              {
+                name: email.trim(),
+                role: 'Development operator',
+                initials: 'DV',
+                email: email.trim(),
+                demoPassword: '',
+                scope: 'Local development only',
+              },
+              challenge,
+              { developmentLogin: true },
+            );
+            navigate(ROUTES.verify, { state: { developmentOtp: challenge.developmentOtp } });
+          })
+          .catch((error: unknown) => sessionActions.setError(formatAuthError(error, 'Development login is not available')));
+        return;
+      }
+      void signInStaff(email.trim(), password)
+        .then((session) => {
+          if (passRef.current) passRef.current.value = '';
+          sessionActions.openApp(session.account);
+          navigate(session.redirectTo || ROUTES.overview);
         })
         .catch((error: unknown) => sessionActions.setError(formatAuthError(error, 'Sign-in failed')));
       return;
@@ -136,7 +175,9 @@ export default function LoginPage() {
             Welcome back
           </h1>
           <Text size={12.5} weight={600} tone="ink2">
-            Use your Mineral Bridge staff account. Access is scoped to your role.
+            {devMode
+              ? 'Local development only. The one-time code is shown on the next screen and is not sent to a phone.'
+              : 'Use your Mineral Bridge staff account. Access is scoped to your role.'}
           </Text>
         </div>
 
@@ -174,11 +215,22 @@ export default function LoginPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <Button type="submit" variant="primary" h={48} r={14} fs={14}>
-            Sign in
+            {devMode ? 'Continue' : 'Sign in'}
           </Button>
-          <Button variant="secondaryInk" h={44} r={13} fs={13} onClick={sso}>
-            Continue with staff SSO
-          </Button>
+          {devMode ? (
+            <Button variant="secondary" h={44} r={13} fs={13} onClick={() => setDevMode(false)}>
+              Use staff sign in
+            </Button>
+          ) : (
+            <Button variant="secondaryInk" h={44} r={13} fs={13} onClick={sso}>
+              Continue with staff SSO
+            </Button>
+          )}
+          {devAvailable ? (
+            <Button variant="quiet" h={34} r={11} fs={11.5} style={{ height: 34 }} onClick={() => setDevMode(true)}>
+              Developer login
+            </Button>
+          ) : null}
           <Button variant="quiet" h={34} r={11} fs={11.5} style={{ height: 34 }} onClick={sessionActions.toggleCreds} aria-expanded={credsOpen}>
             {credsOpen ? 'Hide staff test credentials' : 'Show staff test credentials'}
           </Button>

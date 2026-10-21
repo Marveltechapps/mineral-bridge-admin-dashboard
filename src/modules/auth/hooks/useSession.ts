@@ -13,9 +13,24 @@ interface SessionState {
   otpChannel: string | null;
   otpExpiresAt: string | null;
   resendAvailableAt: string | null;
+  developmentLogin: boolean;
 }
 
 const STORAGE_KEY = 'mb-session';
+
+function readStoredAccount(value: unknown): StaffAccount | null {
+  if (!value || typeof value !== 'object') return null;
+  const account = value as Partial<StaffAccount>;
+  if (typeof account.email !== 'string' || typeof account.name !== 'string') return null;
+  return {
+    name: account.name,
+    role: typeof account.role === 'string' ? account.role : 'Staff',
+    initials: typeof account.initials === 'string' ? account.initials : account.name.slice(0, 2).toUpperCase(),
+    email: account.email,
+    demoPassword: '',
+    scope: typeof account.scope === 'string' ? account.scope : 'Operations console',
+  };
+}
 
 function load(): SessionState {
   const fallback: SessionState = {
@@ -29,6 +44,7 @@ function load(): SessionState {
     otpChannel: null,
     otpExpiresAt: null,
     resendAvailableAt: null,
+    developmentLogin: false,
   };
   try {
     const raw = window.sessionStorage.getItem(STORAGE_KEY);
@@ -46,6 +62,8 @@ function load(): SessionState {
         otpChannel: typeof parsed.otpChannel === 'string' ? parsed.otpChannel : null,
         otpExpiresAt: typeof parsed.otpExpiresAt === 'string' ? parsed.otpExpiresAt : null,
         resendAvailableAt: typeof parsed.resendAvailableAt === 'string' ? parsed.resendAvailableAt : null,
+        developmentLogin: parsed.developmentLogin === true,
+        liveAccount: readStoredAccount(parsed.liveAccount),
       };
     }
   } catch {
@@ -65,6 +83,7 @@ const emptySession: SessionState = {
   otpChannel: null,
   otpExpiresAt: null,
   resendAvailableAt: null,
+  developmentLogin: false,
 };
 
 export const sessionStore = createStore<SessionState>(typeof window === 'undefined' ? emptySession : load());
@@ -83,6 +102,10 @@ sessionStore.subscribe(() => {
         otpChannel: state.otpChannel,
         otpExpiresAt: state.otpExpiresAt,
         resendAvailableAt: state.resendAvailableAt,
+        developmentLogin: state.developmentLogin === true,
+        liveAccount: state.liveAccount
+          ? { ...state.liveAccount, demoPassword: '' }
+          : null,
       }),
     );
   } catch {
@@ -121,6 +144,7 @@ export const sessionActions = {
     challengeId: string,
     account: StaffAccount,
     delivery?: { maskedDestination?: string; channel?: string; expiresAt?: string; resendAvailableAt?: string },
+    options?: { developmentLogin?: boolean },
   ) {
     sessionStore.setState({
       challengeId,
@@ -131,6 +155,7 @@ export const sessionActions = {
       otpChannel: delivery?.channel ?? null,
       otpExpiresAt: delivery?.expiresAt ?? null,
       resendAvailableAt: delivery?.resendAvailableAt ?? null,
+      developmentLogin: options?.developmentLogin === true,
     });
   },
   noteResend(delivery: { maskedDestination?: string; resendAvailableAt?: string }) {
@@ -140,11 +165,25 @@ export const sessionActions = {
       authError: null,
     });
   },
+  openApp(account: StaffAccount) {
+    sessionStore.setState({
+      stage: 'app',
+      liveAccount: { ...account, demoPassword: '' },
+      authError: null,
+      credsOpen: false,
+      challengeId: null,
+      developmentLogin: false,
+      maskedDestination: null,
+      otpChannel: null,
+      otpExpiresAt: null,
+      resendAvailableAt: null,
+    });
+  },
   verify() {
-    sessionStore.setState({ stage: 'app', authError: null, credsOpen: false });
+    sessionStore.setState({ stage: 'app', authError: null, credsOpen: false, developmentLogin: false });
   },
   backToLogin() {
-    sessionStore.setState({ stage: 'login', authError: null });
+    sessionStore.setState({ stage: 'login', authError: null, developmentLogin: false });
   },
   lock() {
     sessionStore.setState({ stage: 'locked' });

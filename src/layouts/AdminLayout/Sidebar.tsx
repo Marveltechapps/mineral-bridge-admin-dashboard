@@ -1,11 +1,54 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '@/components/ui/Icon';
 import { NAV_GROUPS } from '@/constants/nav';
 import { MODULE_ROOT, ROUTES, moduleFromPath } from '@/constants/routes';
+import { ApiError, isApiError, isDemoMode } from '@/lib/apiClient';
 import { useCurrentAccount } from '@/modules/auth/hooks/useSession';
+import { DEMO_BADGES, loadCounters, subscribeCounters, type NavBadges } from '@/services/shell/counters';
 import { consoleActions, useConsole } from '@/store/consoleStore';
 import styles from './Sidebar.module.css';
+
+/**
+ * Live badges come from `GET /dashboard/counters`.
+ * A missing module means this role cannot view it, so no badge is drawn.
+ * Zero is shown as 0. A failed request draws no number.
+ */
+function useNavBadges(pathname: string): { text: (id: string) => string | undefined; sessionError: ApiError | null } {
+  const demo = isDemoMode();
+  const [badges, setBadges] = useState<NavBadges | null>(null);
+  const [sessionError, setSessionError] = useState<ApiError | null>(null);
+  const confirmed = useRef(false);
+  const [refresh, setRefresh] = useState(0);
+
+  useEffect(() => subscribeCounters(() => setRefresh((n) => n + 1)), []);
+
+  useEffect(() => {
+    if (demo) return;
+    const ac = new AbortController();
+    loadCounters(ac.signal)
+      .then((next) => {
+        if (ac.signal.aborted) return;
+        confirmed.current = true;
+        setBadges(next);
+      })
+      .catch((error: unknown) => {
+        if (ac.signal.aborted) return;
+        if (!confirmed.current) setBadges({});
+        if (isApiError(error) && error.status === 401) setSessionError(error);
+      });
+    return () => ac.abort();
+  }, [demo, pathname, refresh]);
+
+  return {
+    text(id: string) {
+      if (demo) return DEMO_BADGES[id as keyof typeof DEMO_BADGES];
+      const count = badges?.[id as keyof NavBadges];
+      return typeof count === 'number' ? String(count) : undefined;
+    },
+    sessionError,
+  };
+}
 
 /** Navy navigation rail with grouped modules, badges and the signed-in account card. */
 export function Sidebar({ showBadges = true }: { showBadges?: boolean }) {
@@ -14,11 +57,14 @@ export function Sidebar({ showBadges = true }: { showBadges?: boolean }) {
   const active = moduleFromPath(pathname);
   const open = useConsole((s) => s.navOpen);
   const { account } = useCurrentAccount();
+  const badges = useNavBadges(pathname);
 
   // Close the mobile drawer after any route change.
   useEffect(() => {
     consoleActions.set({ navOpen: false });
   }, [pathname]);
+
+  if (badges.sessionError) throw badges.sessionError;
 
   return (
     <>
@@ -46,6 +92,7 @@ export function Sidebar({ showBadges = true }: { showBadges?: boolean }) {
               <div className={styles.groupLabel}>{g.label}</div>
               {g.items.map((it) => {
                 const isActive = active === it.id;
+                const badge = badges.text(it.id);
                 return (
                   <NavLink
                     key={it.id}
@@ -58,7 +105,7 @@ export function Sidebar({ showBadges = true }: { showBadges?: boolean }) {
                       <Icon name={it.icon} />
                     </span>
                     <span className={styles.itemLabel}>{it.label}</span>
-                    {showBadges && it.badge && <span className={styles.badge}>{it.badge}</span>}
+                    {showBadges && badge !== undefined && <span className={styles.badge}>{badge}</span>}
                   </NavLink>
                 );
               })}

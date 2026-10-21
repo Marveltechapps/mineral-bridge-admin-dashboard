@@ -1,4 +1,5 @@
 export interface Rate {
+  id?: string;
   mineral: string;
   grade: string;
   buy: string;

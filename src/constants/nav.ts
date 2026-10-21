@@ -27,7 +27,6 @@ export interface NavItem {
   id: ModuleId;
   label: string;
   icon: IconName;
-  badge?: string;
 }
 
 export interface NavGroup {
@@ -40,18 +39,18 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'TRADING',
     items: [
       { id: 'overview', label: 'Overview', icon: 'grid' },
-      { id: 'orders', label: 'Orders', icon: 'orders', badge: '184' },
+      { id: 'orders', label: 'Orders', icon: 'orders' },
       { id: 'vault', label: 'Vault & Inventory', icon: 'vault' },
-      { id: 'listings', label: 'Catalog Listings', icon: 'box', badge: '9' },
-      { id: 'pricing', label: 'Pricing & Rates', icon: 'pricing', badge: '6' },
-      { id: 'auctions', label: 'Auctions', icon: 'auctions', badge: '7' },
-      { id: 'lc', label: 'LC & Payments', icon: 'lc', badge: '4' },
+      { id: 'listings', label: 'Catalog Listings', icon: 'box' },
+      { id: 'pricing', label: 'Pricing & Rates', icon: 'pricing' },
+      { id: 'auctions', label: 'Auctions', icon: 'auctions' },
+      { id: 'lc', label: 'LC & Payments', icon: 'lc' },
     ],
   },
   {
     label: 'TRADE NETWORK',
     items: [
-      { id: 'collab', label: 'Collaboration', icon: 'collab', badge: '23' },
+      { id: 'collab', label: 'Collaboration', icon: 'collab' },
       { id: 'chain', label: 'Blockchain Monitor', icon: 'chain' },
     ],
   },
@@ -59,8 +58,8 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'PEOPLE & TRUST',
     items: [
       { id: 'users', label: 'Users & Accounts', icon: 'users' },
-      { id: 'verification', label: 'Verification & Compliance', icon: 'shield', badge: '27' },
-      { id: 'disputes', label: 'Disputes & Resolution', icon: 'dispute', badge: '5' },
+      { id: 'verification', label: 'Verification & Compliance', icon: 'shield' },
+      { id: 'disputes', label: 'Disputes & Resolution', icon: 'dispute' },
     ],
   },
   {
@@ -74,7 +73,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'OPERATIONS',
     items: [
       { id: 'partners', label: 'Partners & Logistics', icon: 'partners' },
-      { id: 'support', label: 'Enquiries & Support', icon: 'support', badge: '12' },
+      { id: 'support', label: 'Enquiries & Support', icon: 'support' },
       { id: 'audit', label: 'Audit Log', icon: 'audit' },
     ],
   },
