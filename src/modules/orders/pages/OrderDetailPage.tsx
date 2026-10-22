@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BackButton, Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -8,15 +9,36 @@ import { Eyebrow, Text } from '@/components/ui/Text';
 import { ROUTES } from '@/constants/routes';
 import { STAGES, STAGE_TONES } from '@/constants/tones';
 import { consoleActions } from '@/store/consoleStore';
-import { isDemoMode } from '@/lib/apiClient';
+import { apiRequest, isDemoMode } from '@/lib/apiClient';
+import { ENDPOINTS } from '@/lib/endpoints';
 import { advanceOrder } from '@/services/orders';
 import { refreshCounters } from '@/services/shell/counters';
 import { Loader } from '@/components/ui/Loader';
-import { orderDetail, useOrderFeed } from '../hooks/useOrders';
+import { orderDetail, useOrderFeed, useOrderRecord } from '../hooks/useOrders';
 import styles from '../Orders.module.css';
 import layout from '@/styles/layout.module.css';
 
 const STATE_COLOR = { done: 'var(--okInk2)', current: 'var(--infoInk)', upcoming: 'var(--line4)' } as const;
+
+function ReviewPhoto({ fileId, name }: { fileId?: string; name: string }) {
+  const [url, setUrl] = useState('');
+  useEffect(() => {
+    if (!fileId || isDemoMode()) return;
+    const ac = new AbortController();
+    void apiRequest<{ url?: string }>(ENDPOINTS.files.url(fileId), { signal: ac.signal })
+      .then((signed) => {
+        if (!ac.signal.aborted && signed.url) setUrl(signed.url);
+      })
+      .catch(() => undefined);
+    return () => ac.abort();
+  }, [fileId]);
+  if (!url) return null;
+  return (
+    <a href={url} target="_blank" rel="noreferrer">
+      <img src={url} alt={name} style={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 12, border: '1px solid var(--line)' }} />
+    </a>
+  );
+}
 
 export default function OrderDetailPage() {
   const { orderId } = useParams();
@@ -24,6 +46,7 @@ export default function OrderDetailPage() {
   const { orders, loading } = useOrderFeed();
   const found = orders.find((o) => o.id === orderId);
   const sel = isDemoMode() ? (found ?? orders[0]) : found;
+  const record = useOrderRecord(isDemoMode() ? undefined : sel?.id);
   if (loading) return <Loader label="Loading orders" />;
   if (!sel) {
     return (
@@ -37,6 +60,9 @@ export default function OrderDetailPage() {
   }
   const d = orderDetail(sel);
   const ex = d.ex;
+  const facts = record?.facts ?? d.facts;
+  const docs: Array<{ name: string; ref: string; status: string; tone: 'green' | 'blue'; fileId?: string }> = record?.docs?.length ? record.docs : d.docs;
+  const photos = docs.filter((doc) => doc.fileId);
 
   const advance = () => {
     if (!sel || sel.idx >= 5) return consoleActions.notify(`Order ${sel?.id ?? ''} has completed custody transfer`);
@@ -176,7 +202,7 @@ export default function OrderDetailPage() {
             <Card radius={20} padding="18px 22px">
               <Eyebrow>ORDER FACTS</Eyebrow>
               <dl style={{ display: 'flex', flexDirection: 'column', marginTop: 14, marginBottom: 0 }}>
-                {d.facts.map(([k, v]) => (
+                {facts.map(([k, v]) => (
                   <div key={k} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 14, padding: '8px 0', borderBottom: '1px solid var(--surf3)' }}>
                     <Text as="dt" size={12} weight={600} tone="ink3">
                       {k}
@@ -191,8 +217,15 @@ export default function OrderDetailPage() {
             <Card radius={20} padding="18px 22px">
               <Eyebrow>LINKED DOCUMENTS</Eyebrow>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
-                {d.docs.map((doc) => (
-                  <DocRow key={doc.name} name={doc.name} sub={doc.ref} ellipsis trailing={<Pill tone={doc.tone}>{doc.status}</Pill>} />
+                {photos.length > 0 ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {photos.map((doc) => (
+                      <ReviewPhoto key={doc.fileId || doc.name} fileId={doc.fileId} name={doc.name} />
+                    ))}
+                  </div>
+                ) : null}
+                {docs.map((doc) => (
+                  <DocRow key={`${doc.name}-${doc.ref}`} name={doc.name} sub={doc.ref} ellipsis trailing={<Pill tone={doc.tone}>{doc.status}</Pill>} />
                 ))}
               </div>
             </Card>
@@ -255,8 +288,9 @@ export default function OrderDetailPage() {
               </span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 18, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,.12)' }}>
-              <KeyValue k="Contact" v={ex?.contact || '—'} kColor="rgba(255,255,255,.6)" vTone="inherit" />
-              <KeyValue k="Phone" v={ex?.phone || '—'} kColor="rgba(255,255,255,.6)" vTone="inherit" />
+              <KeyValue k="Contact" v={record?.contact || ex?.contact || '—'} kColor="rgba(255,255,255,.6)" vTone="inherit" />
+              <KeyValue k="Email" v={record?.email || '—'} kColor="rgba(255,255,255,.6)" vTone="inherit" />
+              <KeyValue k="Phone" v={record?.phone || ex?.phone || '—'} kColor="rgba(255,255,255,.6)" vTone="inherit" />
               <KeyValue k="Completed orders" v={isDemoMode() ? `${ex?.done || 0} · no disputes` : '—'} kColor="rgba(255,255,255,.6)" vTone="inherit" />
               <KeyValue
                 k="KYC"
@@ -264,7 +298,7 @@ export default function OrderDetailPage() {
                 vTone="inherit"
                 v={
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 999, background: 'rgba(22,163,74,.18)', color: '#7FE3A1', fontSize: 10, fontWeight: 800, letterSpacing: '.6px' }}>
-                    VERIFIED
+                    {(record?.kyc || (isDemoMode() ? 'VERIFIED' : '—')).toUpperCase()}
                   </span>
                 }
               />
@@ -274,10 +308,10 @@ export default function OrderDetailPage() {
                 {d.qtyLine}
               </Text>
               <Text as="div" font="display" size={24} weight={700} ls={-0.6} style={{ marginTop: 6 }}>
-                {ex?.value || '—'}
+                {record?.value || ex?.value || '—'}
               </Text>
               <Text as="div" size={11} weight={600} tone="white58" style={{ marginTop: 3 }}>
-                {d.rateLine}
+                {record?.rate ? `Locked at ${record.rate}` : d.rateLine}
               </Text>
             </div>
           </Card>

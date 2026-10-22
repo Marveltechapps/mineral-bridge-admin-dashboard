@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { STAGES, AGENT_NAMES } from '@/constants/tones';
 import { useConsole } from '@/store/consoleStore';
 import { isDemoMode } from '@/lib/apiClient';
-import { getOrders, ORDERS, ORDER_EXTRA, STAGE_DESC } from '@/services/orders';
+import { getOrderDetail, getOrders, ORDERS, ORDER_EXTRA, STAGE_DESC, type LiveOrderFacts } from '@/services/orders';
 import type { OrderRow } from '@/types/orders';
 
 export interface LiveOrder extends Omit<OrderRow, 'stage'> {
@@ -52,6 +52,22 @@ export function useOrderFeed(): OrderFeed {
 
 export function useLiveOrders(): LiveOrder[] {
   return useOrderFeed().orders;
+}
+
+/** Pricing, settlement, customer, and listing photos stored for one live order. */
+export function useOrderRecord(orderId?: string): LiveOrderFacts | null {
+  const [record, setRecord] = useState<LiveOrderFacts | null>(null);
+  useEffect(() => {
+    if (!orderId || isDemoMode()) return;
+    const ac = new AbortController();
+    getOrderDetail(orderId, ac.signal)
+      .then((next) => {
+        if (!ac.signal.aborted) setRecord(next);
+      })
+      .catch(() => undefined);
+    return () => ac.abort();
+  }, [orderId]);
+  return record;
 }
 
 function initialsOf(party: string): string {

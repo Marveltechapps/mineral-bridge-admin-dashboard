@@ -95,9 +95,17 @@ export default function OrderListPage() {
               <Text size={12.5} weight={800} tone="brand" ls={-0.1}>
                 {o.id}
               </Text>
-              <Text size={12.5} weight={600} tone="ink">
-                {o.mineral}
-              </Text>
+              <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                <Text size={12.5} weight={600} tone="ink" ellipsis>
+                  {o.mineral}
+                </Text>
+                {o.value ? (
+                  <Text size={10.5} weight={700} tone="ink3" ellipsis>
+                    {o.value}
+                    {o.rate ? ` · ${o.rate}` : ''}
+                  </Text>
+                ) : null}
+              </span>
               <Pill tone={o.side === 'Buy' ? 'navy' : 'gold'}>{o.side}</Pill>
               <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                 <Text size={12.5} weight={600} tone="ink" ellipsis>
@@ -107,10 +115,24 @@ export default function OrderListPage() {
                   Tier {o.tier}
                 </Text>
               </span>
-              <Text size={12.5} weight={700} tone="ink">
-                {o.qty}
-              </Text>
-              <Pill tone={STAGE_TONES[o.idx]}>{STAGES[o.idx]}</Pill>
+              <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                <Text size={12.5} weight={700} tone="ink">
+                  {o.qty}
+                </Text>
+                {o.settlement ? (
+                  <Text size={10.5} weight={700} tone="ink3" ellipsis>
+                    {o.settlement}
+                  </Text>
+                ) : null}
+              </span>
+              <span style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                <Pill tone={STAGE_TONES[o.idx]}>{STAGES[o.idx]}</Pill>
+                {o.orderStatus ? (
+                  <Text size={10.5} weight={700} tone="ink3">
+                    {o.orderStatus}
+                  </Text>
+                ) : null}
+              </span>
               <Text size={12.5} weight={700} tone={o.days >= 5 ? 'err' : o.days >= 3 ? 'warn' : 'ink2'}>
                 {o.days}d
               </Text>

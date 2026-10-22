@@ -12,6 +12,8 @@ import { consoleActions, useConsole } from '@/store/consoleStore';
 import { numeric } from '@/lib/collection';
 import { useLiveList } from '@/hooks/useLiveList';
 import { Loader } from '@/components/ui/Loader';
+import { isDemoMode } from '@/lib/apiClient';
+import { getOrders } from '@/services/orders';
 import { LISTINGS, LISTING_FILTERS, LISTING_STATS, accessTone, getListings, getListingStats, unitOf } from '@/services/listings';
 import layout from '@/styles/layout.module.css';
 import { CatalogHierarchyPanel } from '../CatalogHierarchyPanel';
@@ -24,6 +26,8 @@ export default function ListingsPage() {
   const filter = useConsole((s) => s.filters.listFilter);
   const live = useLiveList(getListings, LISTINGS);
   const stats = useLiveList(getListingStats, LISTING_STATS);
+  const trade = useLiveList(getOrders, []);
+  const submissions = trade.rows.filter((row) => row.side === 'Sell' && Boolean(row.form || row.verification));
   const rows = useSorted(
     live.rows.filter((l) => (filter === 'All listings' || l.status === filter) && match([l.id, l.lot, l.mineral, l.grade, l.status, l.access])),
     'listings',
@@ -132,6 +136,60 @@ export default function ListingsPage() {
           Showing {rows.length} of {live.rows.length} catalog listings
         </TableFooter>
       </Card>
+
+      {!isDemoMode() && (
+        <Card clip>
+          <DataTable
+            label="Customer sell submissions"
+            cols="1.1fr 1.2fr 1.3fr .8fr .7fr 1.2fr 1fr .7fr"
+            minWidth={980}
+            header={
+              <>
+                <HeadCell>LISTING</HeadCell>
+                <HeadCell>SELLER</HeadCell>
+                <HeadCell>MINERAL</HeadCell>
+                <HeadCell>QUANTITY</HeadCell>
+                <HeadCell>FORM</HeadCell>
+                <HeadCell>LOCATION</HeadCell>
+                <HeadCell>VERIFICATION</HeadCell>
+                <HeadCell>PHOTOS</HeadCell>
+              </>
+            }
+          >
+            {submissions.map((row) => (
+              <DataRow key={row.id} onClick={() => navigate(ROUTES.order(row.id))} label={`Open sell listing ${row.id}`}>
+                <Text size={12.5} weight={800} tone="brand">
+                  {row.id}
+                </Text>
+                <Text size={12.5} weight={600} tone="ink">
+                  {row.party}
+                </Text>
+                <Text size={12.5} weight={700} tone="ink">
+                  {row.mineral}
+                </Text>
+                <Text size={12.5} weight={700} tone="ink">
+                  {row.qty}
+                </Text>
+                <Text size={12.5} weight={700} tone="ink">
+                  {row.form}
+                </Text>
+                <Text size={12.5} weight={600} tone="ink">
+                  {row.location}
+                </Text>
+                <Pill tone="blue">{row.verification || row.orderStatus}</Pill>
+                <Text size={12.5} weight={700} tone="ink">
+                  {row.photos ?? 0}
+                </Text>
+              </DataRow>
+            ))}
+          </DataTable>
+          {trade.loading ? <Loader label="Loading sell submissions" /> : null}
+          {!trade.loading && submissions.length === 0 && <TableEmpty>No customer sell submissions yet.</TableEmpty>}
+          <TableFooter>
+            {submissions.length} customer sell {submissions.length === 1 ? 'submission' : 'submissions'}
+          </TableFooter>
+        </Card>
+      )}
     </div>
   );
 }

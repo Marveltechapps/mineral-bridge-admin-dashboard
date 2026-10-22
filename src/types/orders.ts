@@ -10,6 +10,14 @@ export interface OrderRow {
   days: number;
   agent: string;
   tier: number;
+  value?: string;
+  rate?: string;
+  settlement?: string;
+  form?: string;
+  location?: string;
+  verification?: string;
+  orderStatus?: string;
+  photos?: number;
 }
 
 export interface OrderExtra {
