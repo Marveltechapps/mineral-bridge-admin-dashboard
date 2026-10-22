@@ -96,6 +96,9 @@ export const ENDPOINTS = {
     documents: '/compliance/documents',
     decision: (id: string) => `/compliance/kyc/${encodeURIComponent(id)}/decision`,
   },
+  files: {
+    url: (id: string) => `/files/${encodeURIComponent(id)}/url`,
+  },
   disputes: {
     list: '/disputes',
     detail: (id: string) => `/disputes/${id}`,

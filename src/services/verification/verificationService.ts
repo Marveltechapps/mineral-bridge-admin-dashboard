@@ -22,7 +22,17 @@ function mapKyc(raw: unknown): KycSubmission {
     docs: docs.map((doc) => {
       const item = asRecord(doc) ?? {};
       const status = textOf(item.status);
-      return { name: textOf(item.name), ref: textOf(item.ref), status: status.replace(/_/g, ' ').toUpperCase(), tone: DOC_TONE[status] ?? 'gray' };
+      return {
+        id: textOf(item.id),
+        name: textOf(item.name),
+        ref: textOf(item.ref),
+        status: status.replace(/_/g, ' ').toUpperCase(),
+        tone: DOC_TONE[status] ?? 'gray',
+        fileId: textOf(item.fileId) || undefined,
+        side: textOf(item.side) || undefined,
+        mimeType: textOf(item.mimeType) || undefined,
+        rejectionReason: textOf(item.rejectionReason) || undefined,
+      };
     }),
   };
 }
@@ -30,6 +40,20 @@ function mapKyc(raw: unknown): KycSubmission {
 export async function getKycSubmissions(signal?: AbortSignal): Promise<KycSubmission[]> {
   if (isDemoMode()) return KYC;
   return (await fetchAllPages(ENDPOINTS.compliance.kyc, signal)).map(mapKyc);
+}
+
+const REASON_MIN = 3;
+
+/** Body for the compliance decision endpoint. Reject and resubmit require a reason. */
+export function reviewDecisionBody(
+  outcome: string,
+  reason: string,
+): { decision: 'approve' } | { decision: 'reject' | 'request_resubmission'; reason: string } | { error: string } {
+  if (outcome === 'Verified') return { decision: 'approve' };
+  const trimmed = reason.trim();
+  if (trimmed.length < REASON_MIN) return { error: 'Enter a reason of at least 3 characters so the customer knows what to correct.' };
+  if (outcome === 'Rejected') return { decision: 'reject', reason: trimmed };
+  return { decision: 'request_resubmission', reason: trimmed };
 }
 
 export async function getTrackedDocuments(signal?: AbortSignal): Promise<TrackedDoc[]> {

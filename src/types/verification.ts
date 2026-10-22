@@ -9,7 +9,17 @@ export interface KycSubmission {
   status: string;
   tone: Tone;
   overdue?: boolean;
-  docs: Array<{ name: string; ref: string; status: string; tone: Tone }>;
+  docs: Array<{
+    id?: string;
+    name: string;
+    ref: string;
+    status: string;
+    tone: Tone;
+    fileId?: string;
+    side?: string;
+    mimeType?: string;
+    rejectionReason?: string;
+  }>;
 }
 
 export interface TrackedDoc {
