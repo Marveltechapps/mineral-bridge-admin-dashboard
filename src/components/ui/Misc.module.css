@@ -1,0 +1,103 @@
+/* Striped placeholder used wherever the design shows a photo slot. */
+.placeholder {
+  border: 1px solid var(--line2);
+  background: repeating-linear-gradient(135deg, var(--surf3) 0 10px, var(--line) 10px 20px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.placeholderTag {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+  color: var(--ink3);
+  background: var(--surf);
+  border: 1px solid var(--line2);
+}
+
+/* Animated progress bar fill (design's mbGrowX bars). */
+.track {
+  display: block;
+  overflow: hidden;
+  background: var(--surf3);
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  transform-origin: left;
+  animation: mbGrowX 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--surf3);
+  color: var(--brandInk);
+  font-weight: 800;
+}
+
+.kv {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.docRow {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surf2);
+}
+
+.docIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: var(--surf3);
+  color: var(--brandInk);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.metricBox {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--surf2);
+  border: 1px solid var(--line);
+  min-width: 0;
+}
+
+.pulseDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 4px;
+  background: #16a34a;
+  animation: mbPulse 2s ease-out infinite;
+  flex-shrink: 0;
+}
+
+.listButton {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  background: var(--surf2);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 0.18s ease,
+    transform 0.14s ease,
+    background 0.18s ease;
+}
+
+.listButton:hover {
+  border-color: var(--line3);
+  transform: translateY(-1px);
+}

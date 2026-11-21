@@ -1,0 +1,88 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 26, 46, 0.34);
+  backdrop-filter: blur(2px);
+  animation: mbFadeIn 0.2s ease;
+  border: none;
+  padding: 0;
+  cursor: default;
+}
+
+.panel {
+  position: relative;
+  width: 440px;
+  max-width: 100%;
+  height: 100%;
+  background: var(--surf);
+  border-left: 1px solid var(--line);
+  animation: mbSlideRight 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: -24px 0 60px rgba(20, 26, 46, 0.22);
+  display: flex;
+  flex-direction: column;
+}
+
+.head {
+  padding: 22px 26px 18px;
+  border-bottom: 1px solid var(--surf3);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 22px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.foot {
+  padding: 18px 26px 22px;
+  border-top: 1px solid var(--surf3);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.close {
+  width: 32px;
+  height: 32px;
+  border-radius: 11px;
+  border: 1px solid var(--line2);
+  background: var(--surf);
+  color: var(--ink2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    border-color 0.18s ease,
+    transform 0.14s ease;
+}
+
+.close:hover {
+  border-color: var(--line3);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 480px) {
+  .head,
+  .body,
+  .foot {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+}

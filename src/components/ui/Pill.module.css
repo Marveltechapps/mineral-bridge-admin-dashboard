@@ -1,0 +1,53 @@
+/* The design's pill() helper. Colours resolve through theme tokens so the
+   light/dark values match TONES and TONES_DARK exactly. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  align-self: center;
+  width: fit-content;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
+}
+
+.green {
+  background: var(--tGreen);
+  color: var(--okInk);
+}
+.blue {
+  background: var(--tBlue);
+  color: var(--infoInk);
+}
+.amber {
+  background: var(--tAmber);
+  color: var(--warnInk);
+}
+.red {
+  background: var(--tRed);
+  color: var(--errInk);
+}
+.gray {
+  background: var(--surf3);
+  color: var(--ink2);
+}
+.navy {
+  background: var(--tNavy);
+  color: var(--brandInk);
+}
+.gold {
+  background: var(--tGold);
+  color: var(--goldInk);
+}
+.violet {
+  background: var(--tViolet);
+  color: var(--violetInk);
+}

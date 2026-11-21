@@ -1,0 +1,27 @@
+.request {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 1.3fr) 210px;
+  gap: 20px;
+  align-items: center;
+}
+
+.cardHead {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--surf3);
+}
+
+@media (max-width: 1100px) {
+  .request {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .request {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .request > :last-child {
+    justify-content: flex-start;
+  }
+}

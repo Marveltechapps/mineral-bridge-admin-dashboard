@@ -1,0 +1,66 @@
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line2);
+  border-radius: 12px;
+  background: var(--surf3);
+  padding: 0 14px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+  outline: none;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+/* The design animates border/background/box-shadow on inputs but specifies no
+   focus value; this focus treatment uses existing tokens so keyboard and mouse
+   users can see the active field. */
+.input:focus,
+.inline:focus-within {
+  border-color: var(--infoInk);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.input[readonly]:focus {
+  border-color: var(--line3);
+  box-shadow: none;
+}
+
+.area {
+  height: auto;
+  resize: vertical;
+}
+
+/* Field with a fixed "$" prefix (desk price, adjusted amount). */
+.inline {
+  border: 1px solid var(--bd, var(--line2));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 12px;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.inlineInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+

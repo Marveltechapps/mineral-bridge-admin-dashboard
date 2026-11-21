@@ -1,0 +1,227 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.14s ease,
+    box-shadow 0.18s ease;
+}
+
+.block {
+  display: flex;
+  width: 100%;
+}
+
+.primary {
+  border: none;
+  background: var(--brand);
+  color: #fff;
+}
+.primary:hover {
+  background: var(--brandHover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadowBtn);
+}
+
+.secondary {
+  border: 1px solid var(--line2);
+  background: var(--surf);
+  color: var(--ink2);
+}
+.secondary:hover {
+  border-color: var(--line3);
+  transform: translateY(-1px);
+}
+
+.secondaryInk {
+  border: 1px solid var(--line2);
+  background: var(--surf);
+  color: var(--ink);
+}
+.secondaryInk:hover {
+  border-color: var(--line3);
+  transform: translateY(-1px);
+}
+
+.secondaryBrand {
+  border: 1px solid var(--line2);
+  background: var(--surf);
+  color: var(--brandInk);
+}
+.secondaryBrand:hover {
+  border-color: var(--line3);
+  transform: translateY(-1px);
+}
+
+.outline {
+  border: 1px solid var(--line3);
+  background: var(--surf);
+  color: var(--brandInk);
+}
+.outline:hover {
+  border-color: var(--brandInk);
+}
+
+.outlineLift {
+  border: 1px solid var(--line3);
+  background: var(--surf);
+  color: var(--brandInk);
+}
+.outlineLift:hover {
+  transform: translateY(-1px);
+}
+
+.success {
+  border: none;
+  background: var(--okSolid);
+  color: #fff;
+}
+.success:hover {
+  background: var(--okSolidHover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadowBtnOk);
+}
+
+.dangerSoft {
+  border: 1px solid var(--tRed);
+  background: var(--tRed2);
+  color: var(--errInk);
+}
+.dangerSoft:hover {
+  border-color: var(--errInk);
+}
+
+.warnSoft {
+  border: 1px solid var(--tAmber);
+  background: var(--tAmber2);
+  color: var(--warnInk);
+}
+.warnSoft:hover {
+  border-color: var(--warnInk);
+}
+
+.warnSolid {
+  border: none;
+  background: var(--warnSolid);
+  color: #fff;
+}
+
+.gold {
+  border: 1px solid rgba(247, 221, 142, 0.5);
+  background: var(--goldGradBtn);
+  color: #1a1f36;
+  font-weight: 800;
+}
+
+.goldNoBorder {
+  border: none;
+  background: var(--goldGradBtn);
+  color: #1a1f36;
+  font-weight: 800;
+}
+
+.glass {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.glass:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.glassSubtle {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+.glassSubtle:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.glassDanger {
+  border: 1px solid rgba(220, 38, 38, 0.4);
+  background: rgba(220, 38, 38, 0.16);
+  color: #ffb4b4;
+}
+
+.glassGold {
+  border: 1px solid rgba(247, 221, 142, 0.45);
+  background: rgba(247, 221, 142, 0.12);
+  color: #f3d27a;
+}
+
+.muted {
+  border: none;
+  background: var(--surf3);
+  color: var(--ink3);
+}
+
+.link {
+  border: none;
+  background: none;
+  color: var(--infoInk);
+}
+
+.back {
+  border: none;
+  background: none;
+  color: var(--ink2);
+  align-self: flex-start;
+}
+.back:hover {
+  color: var(--brandInk);
+}
+
+.quiet {
+  border: none;
+  background: none;
+  color: var(--ink3);
+}
+.quiet:hover {
+  color: var(--brandInk);
+}
+
+/* Buttons the design renders without a hover treatment. */
+.static:hover {
+  transform: none;
+  box-shadow: none;
+}
+.primary.static:hover {
+  background: var(--brand);
+}
+.success.static:hover {
+  background: var(--okSolid);
+}
+.secondary.static:hover,
+.secondaryInk.static:hover,
+.secondaryBrand.static:hover {
+  border-color: var(--line2);
+}
+.outline.static:hover,
+.outlineLift.static:hover {
+  border-color: var(--line3);
+}
+.dangerSoft.static:hover {
+  border-color: var(--tRed);
+}
+.warnSoft.static:hover {
+  border-color: var(--tAmber);
+}
+.glass.static:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.glassSubtle.static:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.quiet.static:hover {
+  color: var(--ink3);
+}
+.back.static:hover {
+  color: var(--ink2);
+}

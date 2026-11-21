@@ -1,0 +1,97 @@
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-width: 74%;
+}
+
+.bubbleAdmin,
+.bubbleSeller {
+  padding: 13px 15px;
+  border-radius: 16px;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.bubbleAdmin {
+  background: #1e2a5a;
+  color: #fff;
+  border-bottom-right-radius: 6px;
+}
+
+.bubbleSeller {
+  background: var(--surf3);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-bottom-left-radius: 6px;
+}
+
+.reply {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line2);
+  border-radius: 16px;
+  background: var(--surf);
+  margin: 0;
+}
+
+.reply:focus-within {
+  border-color: var(--infoInk);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.replyInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* Native select styled to match the design's outcome field. */
+.selectWrap {
+  position: relative;
+  display: flex;
+}
+
+.select {
+  appearance: none;
+  width: 100%;
+  height: 42px;
+  border: 1px solid var(--line2);
+  border-radius: 12px;
+  background: var(--surf3);
+  padding: 0 34px 0 13px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  outline: none;
+  cursor: pointer;
+}
+
+.select:focus {
+  border-color: var(--infoInk);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.selectIcon {
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  color: var(--ink);
+  pointer-events: none;
+}
+
+@media (max-width: 767px) {
+  .message {
+    max-width: 90%;
+  }
+}
