@@ -1,0 +1,79 @@
+.card { border-radius: 18px; border: 1px solid var(--line); background: var(--card); box-shadow: var(--shadow); }
+.eyebrow { font-size: 10.5px; font-weight: 800; letter-spacing: 1px; color: var(--ink3); }
+
+.back { display: flex; align-items: center; gap: 7px; align-self: flex-start; padding: 0; border: none; background: none; font-size: 12.5px; font-weight: 700; color: var(--ink2); cursor: pointer; }
+
+/* Summary */
+.summary { padding: 20px 22px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.summaryMain { flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 7px; }
+.pills { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.id { font-family: 'Poppins'; font-size: 20px; font-weight: 700; letter-spacing: -.4px; }
+.sub { font-size: 12px; font-weight: 600; color: var(--ink2); }
+.value { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.valueLabel { font-size: 10px; font-weight: 800; letter-spacing: 1px; color: var(--ink3); }
+.valueAmount { font-family: 'Poppins'; font-size: 24px; font-weight: 700; letter-spacing: -.6px; }
+.valueStep { font-size: 11px; font-weight: 700; color: var(--ink3); }
+
+/* Phase tracker */
+.phases { padding: 18px 22px; }
+.phase { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.phaseTrack { display: flex; align-items: center; }
+.phaseSub { font-size: 10.5px; font-weight: 700; color: var(--ink3); }
+
+/* Body */
+.body { display: grid; grid-template-columns: minmax(0,1.75fr) minmax(300px,1fr); gap: 16px; align-items: start; }
+.main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.side { position: sticky; top: 88px; display: flex; flex-direction: column; gap: 14px; }
+
+/* Info cards */
+.infoGrid { display: grid; grid-template-columns: repeat(auto-fill,minmax(300px,1fr)); gap: 14px; }
+.info { padding: 16px 18px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.infoTitle { margin-bottom: 8px; }
+.infoRow { display: flex; justify-content: space-between; gap: 14px; padding: 6px 0; border-top: 1px solid var(--line2); }
+.infoKey { font-size: 11.5px; font-weight: 600; color: var(--ink3); }
+.infoVal { font-size: 12px; font-weight: 700; color: var(--ink); text-align: right; overflow-wrap: anywhere; }
+.infoItemText { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.infoItemT { font-size: 12px; font-weight: 700; }
+.infoItemS { font-size: 11px; font-weight: 600; color: var(--ink3); }
+.infoItemR { font-size: 11px; font-weight: 700; color: var(--ink2); white-space: nowrap; }
+
+/* All steps */
+.steps { padding: 16px 18px; }
+.stepList { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.step { display: flex; gap: 12px; }
+.stepBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.stepHead { display: flex; justify-content: space-between; gap: 12px; }
+.stepOwner { font-size: 10.5px; font-weight: 700; color: var(--ink3); white-space: nowrap; }
+.stepMeta { font-size: 11px; font-weight: 600; color: var(--ink3); }
+.stepNote { font-size: 11.5px; font-weight: 600; color: var(--ink2); padding: 7px 10px; border-radius: 10px; background: var(--soft); }
+
+/* Next step */
+.next { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.nextTitle { font-family: 'Poppins'; font-size: 16px; font-weight: 700; line-height: 1.3; }
+.nextPills { display: flex; flex-wrap: wrap; gap: 6px; }
+.rolePill { display: inline-flex; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); font-size: 10.5px; font-weight: 800; color: var(--ink2); }
+.nextNote { font-size: 12px; font-weight: 600; color: var(--ink2); line-height: 1.55; padding: 10px 12px; border-radius: 12px; background: var(--soft); }
+.fields { display: flex; flex-direction: column; gap: 9px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.fieldLabel { font-size: 11px; font-weight: 700; color: var(--ink2); }
+.input { height: 38px; border: 1px solid var(--line); border-radius: 11px; background: var(--soft); padding: 0 12px; font-size: 12.5px; font-weight: 700; color: var(--ink); outline: none; }
+.choices { display: flex; flex-wrap: wrap; gap: 6px; }
+.acts { display: flex; flex-direction: column; gap: 8px; }
+.signedAs { font-size: 10.5px; font-weight: 600; color: var(--ink3); }
+
+/* Negotiation */
+.nego { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.negoHead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.negoCount { font-size: 10.5px; font-weight: 700; color: var(--ink3); }
+.negoCurrent { font-size: 12px; font-weight: 700; color: var(--ink2); }
+.negoMsgs { display: flex; flex-direction: column; gap: 9px; max-height: 320px; overflow-y: auto; padding: 2px; }
+.negoEmpty { font-size: 12px; font-weight: 600; color: var(--ink3); }
+.negoText { border: 1px solid var(--line); border-radius: 11px; background: var(--soft); padding: 9px 12px; font-size: 12.5px; font-weight: 500; color: var(--ink); outline: none; resize: vertical; font-family: inherit; }
+.negoActs { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Customer and manage */
+.customer { padding: 16px 18px; display: flex; flex-direction: column; gap: 5px; text-align: left; cursor: pointer; }
+.customerName { font-size: 14px; font-weight: 700; color: var(--ink); }
+.customerBiz { font-size: 11.5px; font-weight: 600; color: var(--ink2); }
+.customerContact { font-size: 11px; font-weight: 600; color: var(--ink3); }
+.manage { padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }

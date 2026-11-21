@@ -1,0 +1,21 @@
+:root { --color-background: #f5f7fa; --color-text: #172033; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Arial, sans-serif; background: var(--color-background); color: var(--color-text); }
+main { max-width: 1200px; margin: 0 auto; padding: 48px 24px; }
+
+/* ---------- Mineral Bridge admin console ----------
+   Design tokens and base rules from the console design. Base rules apply only while the console
+   is mounted (it sets data-app="console" on <html>), so other screens keep the rules above. */
+:root{--bg:#F5F6FA;--card:#FFFFFF;--soft:#FAFBFE;--line:#E4E7EF;--line2:#EEF1F6;--hl:#F4F7FF;--ink:#1A1F36;--ink2:#4F5775;--ink3:#646C8A;--brandInk:#1E2A5A;--btn:#1E2A5A;--side1:#1E2A5A;--side2:#141A2E;--shadow:0 4px 14px rgba(20,26,46,.05);--okBg:#DCFCE7;--okInk:#15803D;--warnBg:#FDECD6;--warnInk:#9A4A08;--errBg:#FEE2E2;--errInk:#B91C1C;--infoBg:#DBEAFE;--infoInk:#1D4ED8;--muteBg:#EEF1F8;--muteInk:#4B5372;--goldBg:#FBF1D6;--goldInk:#7A5512}
+[data-theme="dark"]{--bg:#1B1D21;--card:#24272C;--soft:#2A2D33;--line:#373B43;--line2:#30343B;--hl:#2B3140;--ink:#F2F3F5;--ink2:#C7CCD4;--ink3:#A8AFB9;--brandInk:#C9D2E3;--btn:#4A5BA0;--side1:#202329;--side2:#17191D;--shadow:0 4px 14px rgba(0,0,0,.25);--okBg:rgba(34,197,94,.16);--okInk:#7EE2A8;--warnBg:rgba(245,158,11,.16);--warnInk:#F7C77A;--errBg:rgba(239,68,68,.16);--errInk:#FCA5A5;--infoBg:rgba(59,130,246,.18);--infoInk:#9CC3FF;--muteBg:#30343B;--muteInk:#C7CCD4;--goldBg:rgba(234,179,8,.14);--goldInk:#F3D27A}
+html[data-app="console"],html[data-app="console"] body{margin:0;padding:0}
+html[data-app="console"] body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+html[data-app="console"] input,html[data-app="console"] textarea,html[data-app="console"] button{font-family:inherit}
+html[data-app="console"] a{color:var(--infoInk);text-decoration:none}
+html[data-app="console"] a:hover{color:var(--brandInk)}
+html[data-app="console"]::-webkit-scrollbar,html[data-app="console"] ::-webkit-scrollbar{width:10px;height:10px}
+html[data-app="console"]::-webkit-scrollbar-thumb,html[data-app="console"] ::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+@keyframes mbUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes mbIn{from{transform:translateX(100%)}to{transform:none}}
+@keyframes mbFade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){html[data-app="console"] *{animation:none !important;transition:none !important}}

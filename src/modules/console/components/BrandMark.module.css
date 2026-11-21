@@ -1,0 +1,10 @@
+.mark { background: linear-gradient(160deg,#F7DD8E,#C8962F); display: flex; align-items: center; justify-content: center; font-family: 'Poppins'; font-weight: 800; color: #1A1F36; }
+.large { width: 40px; height: 40px; border-radius: 13px; font-size: 15px; }
+.small { width: 36px; height: 36px; flex-shrink: 0; border-radius: 12px; font-size: 13.5px; }
+.words { display: flex; flex-direction: column; line-height: 1.2; }
+.name { font-family: 'Poppins'; font-weight: 800; color: #F3D27A; }
+.nameLarge { font-size: 13px; letter-spacing: 1.4px; }
+.nameSmall { font-size: 12px; letter-spacing: 1.3px; }
+.tag { font-weight: 700; color: rgba(255,255,255,.6); }
+.tagLarge { font-size: 11px; letter-spacing: 1.2px; }
+.tagSmall { font-size: 10.5px; letter-spacing: 1.1px; }
