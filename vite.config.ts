@@ -17,6 +17,9 @@ export default defineConfig(async ({ command, mode }) => {
     plugins: [react()],
     resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
     server: {
+      // IPv4 loopback. On Windows, binding "localhost" can listen only on ::1,
+      // so http://127.0.0.1:5173 would not connect.
+      host: '127.0.0.1',
       port: 5173,
       proxy,
     },

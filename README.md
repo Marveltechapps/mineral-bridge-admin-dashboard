@@ -32,7 +32,7 @@ npm install
 npm run dev
 ```
 
-Dashboard: http://127.0.0.1:5173 . Change `API_BASE_URL` in `.env.local` when the API is not at `http://127.0.0.1:5001`.
+Dashboard: http://127.0.0.1:5173 . The dev server binds that IPv4 address so Windows does not send the browser to an IPv6-only listener. Change `API_BASE_URL` in `.env.local` when the API is not at `http://127.0.0.1:5001`. A shell variable of the same name overrides the file.
 
 CMD, each window starting at the repository root, uses `copy` instead of `Copy-Item`:
 
