@@ -2,13 +2,57 @@
 
 React + Vite + TypeScript starter following the structure of `selorg-admin-dashboard` in the Selorg Application reference. Includes a small sample feature demonstrating file and folder conventions, and the Mineral Bridge admin console.
 
-```sh
+The dashboard dev server proxies `/v2`, `/admin`, and `/api` to the Mineral Bridge API. `API_BASE_URL` sets that origin. When it is unset, the default is `http://127.0.0.1:5001`. The value is read only by Vite and is not part of the production bundle. For deployment, configure the hosting server to proxy the same paths to the API and serve `index.html` for SPA routes.
+
+The dev server starts even when the API is down and prints the commands below. A request then returns `503` `api/unavailable` with the same steps. If a different application is already listening on that origin, Vite exits and does not proxy to it. A Mineral Bridge API is recognized only when `GET /health` returns `200` `{"status":"ok","uptimeSeconds":<number>}` and `GET /v2/admin/me` with `X-Client: admin` returns `401` `{"code":"auth/session-expired"}`.
+
+## Fresh clone
+
+Node.js 20 or newer, npm, and Docker Desktop. Redis is not required. Leave `REDIS_URL` unset unless you are running more than one API process. The API does not open its port until MongoDB is connected, so start Mongo first.
+
+From the repository root in PowerShell:
+
+```powershell
+cd mineralbridge-backend
+Copy-Item .env.example .env
+docker compose up -d --wait mongo
 npm install
-cp .env.example .env.local
+npm run seed
 npm run dev
 ```
 
-Admin: http://localhost:5173. The browser calls `/v2`, `/admin`, and `/api` on the dashboard origin. The dev server proxies those paths to the Mineral Bridge API using `API_PORT` or `API_PROXY_TARGET` from `.env.local`. Those values are not part of the production bundle. For deployment, configure the hosting server to proxy the same paths to the API and serve `index.html` for SPA routes.
+The API listens on `PORT` from `.env`. The example sets `5001`, which is also the code default: http://127.0.0.1:5001 . Health: `/health`. Readiness (Mongo): `/ready`. Docs: `/docs`.
+
+In a second terminal:
+
+```powershell
+cd MB-Dashboard
+Copy-Item .env.example .env.local
+npm install
+npm run dev
+```
+
+Dashboard: http://127.0.0.1:5173 . Change `API_BASE_URL` in `.env.local` when the API is not at `http://127.0.0.1:5001`.
+
+CMD, each window starting at the repository root, uses `copy` instead of `Copy-Item`:
+
+```bat
+cd mineralbridge-backend
+copy .env.example .env
+docker compose up -d --wait mongo
+npm install
+npm run seed
+npm run dev
+```
+
+```bat
+cd MB-Dashboard
+copy .env.example .env.local
+npm install
+npm run dev
+```
+
+If PowerShell blocks `npm.ps1`, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or use CMD.
 
 Features go in `src/modules/<feature>/{pages,components,hooks}`. Services go in `src/services/<feature>/`. Components use `.tsx` and optional `.module.css`; helpers and stores use `.ts`. App providers and routing live in `src/app/`.
 

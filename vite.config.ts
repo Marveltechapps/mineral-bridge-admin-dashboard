@@ -7,9 +7,10 @@ export default defineConfig(async ({ command, mode }) => {
   let proxy: ReturnType<typeof devProxyFor> = undefined;
   if (command === 'serve') {
     const fileEnv = loadEnv(mode, process.cwd(), '');
-    const target = await resolveApiProxyTarget({ ...fileEnv, ...process.env });
-    proxy = devProxyFor(command, target);
-    console.log(`[dashboard] API proxy → ${target}`);
+    const resolved = await resolveApiProxyTarget({ ...fileEnv, ...process.env });
+    proxy = devProxyFor(command, resolved.origin);
+    if (resolved.warning) console.error(`\n[dashboard]\n${resolved.warning}\n`);
+    else console.log(`[dashboard] API proxy → ${resolved.origin}`);
   }
 
   return {
