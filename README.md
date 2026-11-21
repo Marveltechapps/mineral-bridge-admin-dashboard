@@ -4,11 +4,11 @@ React + Vite + TypeScript starter following the structure of `selorg-admin-dashb
 
 ```sh
 npm install
-cp .env.example .env
+cp .env.example .env.local
 npm run dev
 ```
 
-Admin: http://localhost:5173. Vite forwards `/api` to `VITE_API_URL`. For deployment, configure the hosting server to proxy `/api` to the service and serve `index.html` for SPA routes.
+Admin: http://localhost:5173. The browser calls `/v2`, `/admin`, and `/api` on the dashboard origin. The dev server proxies those paths to the Mineral Bridge API using `API_PORT` or `API_PROXY_TARGET` from `.env.local`. Those values are not part of the production bundle. For deployment, configure the hosting server to proxy the same paths to the API and serve `index.html` for SPA routes.
 
 Features go in `src/modules/<feature>/{pages,components,hooks}`. Services go in `src/services/<feature>/`. Components use `.tsx` and optional `.module.css`; helpers and stores use `.ts`. App providers and routing live in `src/app/`.
 

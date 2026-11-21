@@ -5,6 +5,7 @@ import { ROUTES } from '@/constants/routes';
 import { consoleActions, useConsole } from '@/store/consoleStore';
 import { useLiveList } from '@/hooks/useLiveList';
 import { isDemoMode } from '@/lib/apiClient';
+import { API_ROUTES, apiUrl } from '@/lib/apiConfig';
 import { formatAuthError } from '@/services/auth';
 import { TIER_REQUESTS, getTierRequests } from '@/services/users';
 import layout from '@/styles/layout.module.css';
@@ -27,8 +28,7 @@ export default function UsersShell() {
               consoleActions.notify('User list exported as CSV');
               return;
             }
-            const base = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
-            void fetch(`${base}/admin/v1/users/export`, { credentials: 'include' })
+            void fetch(apiUrl(API_ROUTES.adminV1, 'users/export'), { credentials: 'include' })
               .then(async (res) => {
                 if (!res.ok) throw new Error('The user list was not exported.');
                 const blob = await res.blob();

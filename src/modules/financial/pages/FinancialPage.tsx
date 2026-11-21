@@ -9,6 +9,7 @@ import type { Tone } from '@/constants/tones';
 import { useQueryMatch, useSorted } from '@/hooks/useConsoleData';
 import { useLiveList, useRemoteValue } from '@/hooks/useLiveList';
 import { isDemoMode } from '@/lib/apiClient';
+import { API_ROUTES, apiUrl } from '@/lib/apiConfig';
 import { formatAuthError } from '@/services/auth';
 import { getSettlementSummary, getSettlements } from '@/services/financial/financialService';
 import { consoleActions, useConsole } from '@/store/consoleStore';
@@ -69,8 +70,7 @@ export default function FinancialPage() {
                 return;
               }
               const period = new Date().toISOString().slice(0, 7);
-              const base = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
-              void fetch(`${base}/admin/v1/settlements/statement?format=csv&period=${period}`, { credentials: 'include' })
+              void fetch(`${apiUrl(API_ROUTES.adminV1, 'settlements/statement')}?format=csv&period=${period}`, { credentials: 'include' })
                 .then(async (res) => {
                   if (!res.ok) throw new Error('The statement was not exported.');
                   const blob = await res.blob();

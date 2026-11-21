@@ -1,6 +1,5 @@
 /**
- * Backend endpoints the console calls when VITE_API_BASE_URL is set.
- * An empty base URL keeps the design prototype on bundled fixtures.
+ * Relative endpoint paths. The browser calls them on the dashboard origin.
  */
 export const ENDPOINTS = {
   auth: {

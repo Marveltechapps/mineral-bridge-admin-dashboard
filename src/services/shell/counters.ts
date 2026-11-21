@@ -7,7 +7,7 @@ import type { ModuleId } from '@/constants/nav';
 export type BadgeId = 'orders' | 'listings' | 'pricing' | 'auctions' | 'lc' | 'collab' | 'verification' | 'disputes' | 'support';
 
 /**
- * Design-prototype badges. Used only when `VITE_API_BASE_URL` is empty.
+ * Design-prototype badges for screens that are not loaded from the live console.
  * Live mode must never read these.
  */
 export const DEMO_BADGES: Partial<Record<ModuleId, string>> = {

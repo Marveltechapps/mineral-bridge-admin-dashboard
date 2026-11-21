@@ -1,3 +1,5 @@
+import { API_ROUTES, apiUrl } from './apiConfig';
+
 /** Cookie session client for `/v2/admin`. The dev server proxies this path to the API. */
 
 export class AdminApiError extends Error {
@@ -29,7 +31,7 @@ export function adminHeaders(method: string, extra?: HeadersInit): Headers {
 
 export async function adminRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method || 'GET').toUpperCase();
-  const response = await fetch(`/v2/admin/${path.replace(/^\//, '')}`, {
+  const response = await fetch(apiUrl(API_ROUTES.adminV2, path), {
     ...init,
     method,
     credentials: 'include',
