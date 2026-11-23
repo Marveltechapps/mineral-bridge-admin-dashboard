@@ -5,8 +5,23 @@ import { MBA } from './registry';
 const A = MBA;
 const { H, D } = A;
 const stages = (o?: any) => o.kind === 'sell' ? A.SELL : A.BUY;
-const cust = (db?: any, id?: any) => db.customers.find((c?: any) => c.id === id) || { id, name: id, business: '' };
-const lot = (db?: any, id?: any) => db.lots.find((l?: any) => l.id === id);
+const cust = (db?: any, id?: any) => (db && Array.isArray(db.customers) ? db.customers : []).find((c?: any) => c && c.id === id) || { id, name: id, business: '' };
+// Lots are keyed by catalogue reference (`id`). A console page can also hand back the product id
+// when that lot was not in the same page as the auction or order that points at it.
+const lot = (db?: any, id?: any) => {
+  const lots = db && Array.isArray(db.lots) ? db.lots : [];
+  if (id == null || id === '') return undefined;
+  const key = String(id);
+  return lots.find((l?: any) => l && (l.id === key || l.productId === key));
+};
+/** Name to show for a lot id. The catalogue name when the lot is loaded; otherwise the caller's own label. */
+const lotName = (db?: any, id?: any, fallback?: any) => {
+  const l = lot(db, id);
+  if (l && l.name) return l.name;
+  if (fallback != null && String(fallback).trim() !== '') return String(fallback);
+  if (id != null && String(id).trim() !== '') return String(id);
+  return '';
+};
 const cname = (c?: any) => c.business || c.name;
 const tail = (id?: any) => id.slice(-5);
 
@@ -180,4 +195,4 @@ function build(now?: any) {
   db.audit.slice(0, 40).forEach((e?: any, i?: any) => { if (e.role === 'Customer' || !e.eid) return; const o = db.orders.find((x?: any) => x.id === e.eid); if (!o) return; const c = cust(db, o.cust); chans.forEach(ch => { if (c.prefs[ch]) db.deliveries.push({ at: e.at + 4000, cust: c.id, event: e.action, ref: e.eid, channel: ch, status: (i + ch.length) % 11 === 0 ? 'failed' : (i % 3 === 0 ? 'sent' : 'delivered') }); }); });
   return db;
 }
-Object.assign(A, { stages, cust, lot, cname, tail, issueDoc, nextInfo, stageData, build, sellValue });
+Object.assign(A, { stages, cust, lot, lotName, cname, tail, issueDoc, nextInfo, stageData, build, sellValue });

@@ -6,7 +6,12 @@ import { MBA, MBV } from './registry';
 const V = MBV;
 const auSt = (a?: any, now?: any) => a.cancelled ? 'Cancelled' : (a.closed || a.closes <= now) ? 'Closed' : a.opens > now ? 'Upcoming' : a.paused ? 'Paused' : 'Live';
 V.auSt = auSt;
-const top = (a?: any) => a.bids.length ? a.bids[a.bids.length - 1] : null;
+const top = (a?: any) => a && Array.isArray(a.bids) && a.bids.length ? a.bids[a.bids.length - 1] : null;
+const bidCount = (a?: any) => a && Array.isArray(a.bids) ? a.bids.length : 0;
+const lotBits = (db?: any, a?: any) => {
+  const l = MBA.lot(db, a && a.lot);
+  return { l, name: MBA.lotName(db, a && a.lot, a && (a.name || a.lot || a.id)), grade: l && l.grade ? l.grade : '', unit: l && l.unit ? l.unit : '' };
+};
 V.top = top;
 const refundOpen = (r?: any) => ['requested', 'review', 'approved', 'processing'].indexOf(r.status) >= 0;
 V.page = (c?: any) => {
@@ -24,7 +29,7 @@ V.page = (c?: any) => {
       ['WAITING ON CUSTOMERS', live.length - mb.length, 'Quotes, contracts, payments', 'mute', () => c.go('buy', { chip: { buy: 'Waiting on customer' } })],
       ['PAYMENTS TO CONFIRM', db.orders.filter((o?: any) => !o.hold && o.kind === 'buy' && M.BUY[o.stage] && M.BUY[o.stage].key === 'payOk').length, 'Finance', 'info', () => c.go('payments')],
       ['PAYOUTS TO RELEASE', money(db.orders.filter((o?: any) => o.kind === 'sell' && M.SELL[o.stage] && M.SELL[o.stage].key === 'payout').reduce((s?: any, o?: any) => s + o.total, 0)), 'Sell requests at payment', 'gold', () => c.go('payments', { tab: { payments: 'Payouts' } })],
-      ['LIVE AUCTIONS', liveA.length, liveA.reduce((s?: any, a?: any) => s + a.bids.length, 0) + ' bids', 'info', () => c.go('auctions', { chip: { auctions: 'Live' } })],
+      ['LIVE AUCTIONS', liveA.length, liveA.reduce((s?: any, a?: any) => s + bidCount(a), 0) + ' bids', 'info', () => c.go('auctions', { chip: { auctions: 'Live' } })],
       ['KYC TO REVIEW', db.kyc.filter((k?: any) => k.status === 'pending').length, db.kyc.filter((k?: any) => k.status === 'requested').length + ' awaiting re-upload', 'warn', () => c.go('customers', { tab: { customers: 'KYC queue' } })],
       ['OPEN REFUNDS', db.refunds.filter(refundOpen).length, money(db.refunds.filter(refundOpen).reduce((s?: any, r?: any) => s + r.amount, 0)), 'warn', () => c.go('refunds')],
       ['COMPLETED VALUE', money(gmv), db.orders.filter((o?: any) => M.nextInfo(o).done && !o.rejected).length + ' orders and requests', 'ok', () => c.go('buy', { chip: { buy: 'Completed' } })]
@@ -36,7 +41,7 @@ V.page = (c?: any) => {
     const closing = db.auctions.filter((a?: any) => auSt(a, now) === 'Live').sort((a?: any, b?: any) => a.closes - b.closes);
     out.minis = [
       { title: 'Waiting on customers', items: wc.map((o?: any) => ({ t: o.id, s: M.nextInfo(o).label + ' · ' + M.ago(now - o.sAt), btn: 'Remind', go: () => c.openOrder(o.id), act: () => { V.tell(c, o.cust, 'Reminder: ' + M.nextInfo(o).label, o.id); V.log(c, 'Order', o.id, 'Reminder sent'); c.commit('Reminder sent to ' + cu(o.cust).name); } })) },
-      { title: 'Live auctions', items: closing.map((a?: any) => { const l = M.lot(db, a.lot), tb = top(a); return { t: a.id + ' · ' + l.name, s: (tb ? money(tb.amt) + ' · ' + a.bids.length + ' bids' : 'No bids') + ' · closes in ' + M.left(a.closes - now), btn: 'Open', go: () => c.openDrawer('auction', a.id), act: () => c.openDrawer('auction', a.id) }; }) }
+      { title: 'Live auctions', items: closing.map((a?: any) => { const lot = lotBits(db, a), tb = top(a); return { t: a.id + ' · ' + lot.name, s: (tb ? money(tb.amt) + ' · ' + bidCount(a) + ' bids' : 'No bids') + ' · closes in ' + M.left(a.closes - now), btn: 'Open', go: () => c.openDrawer('auction', a.id), act: () => c.openDrawer('auction', a.id) }; }) }
     ];
     out.hasMinis = true;
     return out;
@@ -61,9 +66,9 @@ V.page = (c?: any) => {
   if (nav === 'auctions') {
     const labels = ['All', 'Live', 'Upcoming', 'Paused', 'Closed', 'Cancelled'];
     const ch = setC(V.chips(c, 'auctions', labels, labels.map(l => l === 'All' ? db.auctions.length : db.auctions.filter((a?: any) => auSt(a, now) === l).length)));
-    const list = db.auctions.filter((a?: any) => (ch === 'All' || auSt(a, now) === ch) && V.match(c, [a.id, a.lot, M.lot(db, a.lot).name]));
+    const list = db.auctions.filter((a?: any) => (ch === 'All' || auSt(a, now) === ch) && V.match(c, [a.id, a.lot, lotBits(db, a).name]));
     out.tools = [V.act(c, 'New auction', () => c.openDrawer('newAuction', 'new'), 1, 'auction')]; out.hasTools = true;
-    out.table = V.table(c, 'auctions', [['AUCTION', '.8fr', (a?: any) => a.id], ['LOT', '1.6fr'], ['QUANTITY', '.8fr'], ['TOP BID', '1fr', (a?: any) => top(a) ? top(a).amt : 0], ['BIDS', '.6fr', (a?: any) => a.bids.length], ['STATUS', '.9fr'], ['CLOSES', '1fr', (a?: any) => a.closes], ['WINNER', '1.2fr']], list.sort((a?: any, b?: any) => b.closes - a.closes), (a?: any) => { const l = M.lot(db, a.lot), s = auSt(a, now), tb = top(a), w = a.winner ? cu(a.winner) : null; return { cells: [{ t: a.id, id: 1 }, { t: l.name, s: a.lot + ' · ' + l.grade }, { t: M.qfmt(a.qty, l.unit) }, { t: tb ? money(tb.amt) : 'No bids', s: 'Start ' + money(a.start), b: !!tb }, { t: a.bids.length }, { t: s, pill: s === 'Live' ? 'ok' : s === 'Upcoming' ? 'info' : s === 'Paused' ? 'warn' : s === 'Cancelled' ? 'err' : 'mute' }, { t: s === 'Live' || s === 'Paused' ? M.left(a.closes - now) : M.fmt(a.closes), s: s === 'Upcoming' ? 'Opens ' + M.fmt(a.opens) : '' }, { t: w ? M.cname(w) : s === 'Closed' && !tb ? 'Unsold' : '—', s: a.orderId || '' }], go: () => c.openDrawer('auction', a.id) }; });
+    out.table = V.table(c, 'auctions', [['AUCTION', '.8fr', (a?: any) => a.id], ['LOT', '1.6fr'], ['QUANTITY', '.8fr'], ['TOP BID', '1fr', (a?: any) => top(a) ? top(a).amt : 0], ['BIDS', '.6fr', (a?: any) => bidCount(a)], ['STATUS', '.9fr'], ['CLOSES', '1fr', (a?: any) => a.closes], ['WINNER', '1.2fr']], list.sort((a?: any, b?: any) => b.closes - a.closes), (a?: any) => { const lot = lotBits(db, a), s = auSt(a, now), tb = top(a), w = a.winner ? cu(a.winner) : null; return { cells: [{ t: a.id, id: 1 }, { t: lot.name, s: (lot.l ? lot.l.id : (a.lot || '')) + (lot.grade ? ' · ' + lot.grade : '') }, { t: M.qfmt(a.qty, lot.unit) }, { t: tb ? money(tb.amt) : 'No bids', s: 'Start ' + money(a.start), b: !!tb }, { t: bidCount(a) }, { t: s, pill: s === 'Live' ? 'ok' : s === 'Upcoming' ? 'info' : s === 'Paused' ? 'warn' : s === 'Cancelled' ? 'err' : 'mute' }, { t: s === 'Live' || s === 'Paused' ? M.left(a.closes - now) : M.fmt(a.closes), s: s === 'Upcoming' ? 'Opens ' + M.fmt(a.opens) : '' }, { t: w ? M.cname(w) : s === 'Closed' && !tb ? 'Unsold' : '—', s: a.orderId || '' }], go: () => c.openDrawer('auction', a.id) }; });
     return out;
   }
   if (nav === 'customers') {

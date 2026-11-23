@@ -203,11 +203,13 @@ wrap('kyc', (v?: any, c?: any, ref?: any) => {
 // ---------- auctions ----------
 wrap('auction', (v?: any, c?: any, id?: any) => {
   const db = c.state.db, a = db.auctions.find((x?: any) => x.id === id), st = V.auSt(a, now()), l = A.lot(db, a.lot);
-  if (!a.bids.length && (st === 'Upcoming' || st === 'Paused')) v.actions.push(V.act(c, 'Edit auction', () => V.form(c, 'au-' + id, { title: 'Edit ' + id, sub: l.name + ' · no bids yet', mode: 'Edit', perm: 'auction', cta: 'Save auction', back: () => c.openDrawer('auction', id),
+  const lotName = A.lotName(db, a.lot, a.name || a.lot || id);
+  const bids = Array.isArray(a.bids) ? a.bids : [];
+  if (l && !bids.length && (st === 'Upcoming' || st === 'Paused')) v.actions.push(V.act(c, 'Edit auction', () => V.form(c, 'au-' + id, { title: 'Edit ' + id, sub: lotName + ' · no bids yet', mode: 'Edit', perm: 'auction', cta: 'Save auction', back: () => c.openDrawer('auction', id),
     fields: [F('qty', 'Quantity (' + l.unit + ')', a.qty, 'num', null, 1), F('start', 'Starting bid ($)', a.start, 'num', null, 1), F('step', 'Bid step ($)', a.step, 'num', null, 1)].concat(st === 'Upcoming' ? [F('opens', 'Opens in (hours from now)', Math.max(0, Math.round((a.opens - now()) / A.H)), 'num', null, 1)] : []).concat([F('dur', 'Runs for (hours after opening)', Math.round((a.closes - Math.max(a.opens, now())) / A.H), 'num', null, 1)]),
     save: (x?: any) => { if (x.qty <= 0 || x.qty > l.avail) return 'Quantity must be up to ' + A.qfmt(l.avail, l.unit); if (x.start <= 0 || x.step <= 0) return 'Starting bid and step must be above zero'; if (x.dur < 1) return 'Run for at least 1 hour'; const b = A.money(a.start) + ' · ' + a.qty; a.qty = x.qty; a.start = x.start; a.step = x.step; if (x.opens != null) a.opens = now() + x.opens * A.H; a.closes = Math.max(a.opens, now()) + x.dur * A.H; V.log(c, 'Auction', id, 'Auction edited', b, A.money(a.start) + ' · ' + a.qty); c.commit(id + ' saved'); c.openDrawer('auction', id); } }), 2, 'auction'));
-  v.actions.push(danger(c, 'Delete auction', () => V.delete(c, 'da-' + id, { title: 'Delete ' + id, sub: l.name, perm: 'auction', back: () => c.openDrawer('auction', id),
-    blocked: () => a.orderId ? 'A winner order (' + a.orderId + ') was created from this auction.' : a.bids.length ? 'This auction has ' + a.bids.length + ' bids. Cancel it instead so bidders are told why.' : '',
+  v.actions.push(danger(c, 'Delete auction', () => V.delete(c, 'da-' + id, { title: 'Delete ' + id, sub: lotName, perm: 'auction', back: () => c.openDrawer('auction', id),
+    blocked: () => a.orderId ? 'A winner order (' + a.orderId + ') was created from this auction.' : bids.length ? 'This auction has ' + bids.length + ' bids. Cancel it instead so bidders are told why.' : '',
     effects: ['Removes the auction from the app', 'Reminder subscribers are not notified', 'The lot keeps its stock'], run: (r?: any) => { if (db.live && V.persistAuctionDelete) { V.persistAuctionDelete(c, id); return; } del(db.auctions, a); V.log(c, 'Auction', id, 'Auction deleted', '', '', r); c.setState({ drawer: null }); c.commit(id + ' deleted'); } }), 'auction'));
   return v;
 });
