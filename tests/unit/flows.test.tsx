@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
@@ -6,7 +6,7 @@ import { routerFuture, routes } from '@/app/router/router';
 import { sessionStore } from '@/modules/auth/hooks/useSession';
 import { consoleActions, consoleStore } from '@/store/consoleStore';
 
-function renderAt(path: string, stage: 'login' | 'app' = 'app') {
+function renderAt(path: string, stage: 'login' | 'otp' | 'app' = 'app') {
   sessionStore.setState({ stage, roleIndex: 0, authError: null, credsOpen: false });
   const router = createMemoryRouter(routes, { initialEntries: [path], future: routerFuture });
   return render(<RouterProvider router={router} future={{ v7_startTransition: true }} />);
@@ -21,8 +21,12 @@ describe('sign-in flow', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Enter your work email and password.');
 
     await userEvent.type(screen.getByPlaceholderText('firstname.lastname@mineralbridge.co.ke'), 'grace.kioko@mineralbridge.co.ke');
-    await userEvent.type(screen.getByPlaceholderText('Enter your password'), 'Desk2026!');
+    await userEvent.type(screen.getByPlaceholderText('Enter your password'), 'not-a-stored-password');
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Incorrect password for grace.kioko@mineralbridge.co.ke.');
+
+    cleanup();
+    renderAt('/verify', 'otp');
     expect(await screen.findByRole('heading', { name: "Verify it's you" })).toBeInTheDocument();
     expect(sessionStore.getState().stage).toBe('otp');
   });

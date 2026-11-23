@@ -5,7 +5,7 @@ export interface StaffAccount {
   role: string;
   initials: string;
   email: string;
-  /** Demo-only credential shown in the design's "staff test credentials" panel. */
+  /** Unused for live sign-in. Kept empty so a password is never stored in the dashboard. */
   demoPassword: string;
   scope: string;
 }

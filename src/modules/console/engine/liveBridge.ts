@@ -906,6 +906,18 @@ V.persistRole = (c: any, key: string, patch: { label?: string; actions?: string[
     .catch((err) => fail(c, err));
 };
 
+V.persistMasterSheet = (c: any, csv: string) => {
+  if (!c?.state?.db?.live || !csv) return;
+  void adminApi.post<{ imported: number; created: number; updated: number; skipped: number; invalid: number }>('/catalogue/master-sheet', { csv })
+    .then((res) => {
+      c.sheet = null;
+      c.setState({ drawer: null });
+      c.commit('Imported ' + res.imported + ' products · ' + res.created + ' new · ' + res.updated + ' updated');
+      return reload(c);
+    })
+    .catch((err) => fail(c, err));
+};
+
 V.persistRoleDelete = (c: any, key: string, reason: string) => {
   if (!c?.state?.db?.live || !key) return;
   void adminApi.delete(`/roles/${encodeURIComponent(key)}`, { reason })

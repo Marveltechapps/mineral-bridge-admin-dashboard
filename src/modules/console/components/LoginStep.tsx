@@ -31,18 +31,6 @@ export function LoginStep({ lg }: { lg: SignInVM['lg'] }) {
       ) : (
         <p className={styles.lede}>Open the <strong>Email</strong> tab and enter your work email and password.</p>
       )}
-      {/* Staff sign-in identities are a development aid only; never list them on a production login page. */}
-      {import.meta.env.DEV && lg.accounts.length > 0 && (
-        <div className={styles.demo}>
-          <div className={styles.demoHead}>DEMO ADMIN ACCOUNTS · CLICK TO FILL</div>
-          {lg.accounts.map((a, i) => (
-            <button type="button" key={i} onClick={a.go} className={styles.account}>
-              <span className={styles.accountRole}>{a.role}</span>
-              <span className={styles.accountId}>{a.id}</span>
-            </button>
-          ))}
-        </div>
-      )}
     </>
   );
 }

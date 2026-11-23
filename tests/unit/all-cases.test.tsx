@@ -1538,12 +1538,8 @@ async function runSpecial(c: Case, router: ReturnType<typeof createMemoryRouter>
     await openAccount();
     await clickLabel('Sign out');
     cleanup();
-    renderAt(dest('/login', 'login', 0));
+    renderAt(dest('/verify', 'otp', 0));
     await ready();
-    await user.type(screen.getByLabelText(/work email/i), STAFF_ACCOUNTS[0].email);
-    await user.type(screen.getByLabelText(/^password/i), STAFF_ACCOUNTS[0].demoPassword);
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
-    await screen.findByRole('button', { name: /Verify and open console/i });
     await user.click(screen.getByRole('button', { name: /Verify and open console/i }));
     expect(consoleStore.getState().theme).toBe('dark');
     expect(window.localStorage.getItem('mb-theme')).toBe('dark');
@@ -1671,13 +1667,12 @@ async function runSpecial(c: Case, router: ReturnType<typeof createMemoryRouter>
   if (id === 'M3-004' || id.startsWith('M3-014') || id === 'M3-015' || id === 'M3-016' || id === 'M3-017' || id === 'M3-018' || id === 'M3-019') {
     const index = id === 'M3-004' ? 0 : roleOf(c.scenario);
     const account = STAFF_ACCOUNTS[index];
-    await user.type(screen.getByLabelText(/work email/i), account.email);
-    await user.type(screen.getByLabelText(/^password/i), account.demoPassword);
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    cleanup();
+    const next = renderAt(dest('/verify', 'otp', index));
     expect(await screen.findByText(account.role)).toBeInTheDocument();
     expect(haystack()).toContain(account.scope);
     await user.click(screen.getByRole('button', { name: /Verify and open console/i }));
-    expect(pathOf(router)).toBe('/overview');
+    expect(pathOf(next)).toBe('/overview');
     expect(haystack()).toContain(account.name);
     return;
   }
@@ -1694,23 +1689,16 @@ async function runSpecial(c: Case, router: ReturnType<typeof createMemoryRouter>
     return;
   }
   if (id === 'M3-007' || id === 'M3-008') {
-    await user.click(screen.getByRole('button', { name: /Show staff test credentials/i }));
-    expect(screen.getByRole('button', { name: /Hide staff test credentials/i })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /@mineralbridge.co.ke/ }).length).toBe(6);
-    if (id === 'M3-008') {
-      await user.click(screen.getByRole('button', { name: /Hide staff test credentials/i }));
-      expect(screen.queryByRole('button', { name: /@mineralbridge.co.ke/ })).toBeNull();
-    }
+    expect(screen.queryByRole('button', { name: /staff test credentials/i })).toBeNull();
+    expect(screen.queryByText(/DEMO ADMIN ACCOUNTS/i)).toBeNull();
     return;
   }
   if (id === 'M3-009') {
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('alert')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /Show staff test credentials/i }));
-    await user.click(screen.getByRole('button', { name: /Trading Desk Manager/ }));
-    expect(screen.getByLabelText(/work email/i)).toHaveValue(STAFF_ACCOUNTS[0].email);
-    expect(screen.getByLabelText(/^password/i)).toHaveValue(STAFF_ACCOUNTS[0].demoPassword);
-    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('button', { name: /staff test credentials/i })).toBeNull();
+    expect(screen.getByLabelText(/work email/i)).toHaveValue('');
+    expect(screen.getByLabelText(/^password/i)).toHaveValue('');
     return;
   }
   if (id === 'M3-010') {
@@ -1737,9 +1725,8 @@ async function runSpecial(c: Case, router: ReturnType<typeof createMemoryRouter>
   if (id === 'M3-022') {
     expect(screen.queryByRole('switch', { name: /Trust this device/i })).toBeNull();
     expect(haystack()).toMatch(/Trust this device for 14 days/);
-    await user.type(screen.getByLabelText(/work email/i), STAFF_ACCOUNTS[0].email);
-    await user.type(screen.getByLabelText(/^password/i), STAFF_ACCOUNTS[0].demoPassword);
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    cleanup();
+    renderAt(dest('/verify', 'otp', 0));
     expect(await screen.findByRole('heading', { name: /Verify it's you/i })).toBeInTheDocument();
     note(id, 'Trust this device is a static control, so the session cannot diverge.');
     return;
@@ -1750,17 +1737,15 @@ async function runSpecial(c: Case, router: ReturnType<typeof createMemoryRouter>
   }
   if (id === 'M3-030') {
     expect(pathOf(router)).toBe('/login');
-    await user.type(screen.getByLabelText(/work email/i), STAFF_ACCOUNTS[2].email);
-    await user.type(screen.getByLabelText(/^password/i), STAFF_ACCOUNTS[2].demoPassword);
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    cleanup();
+    const next = renderAt(dest('/verify', 'otp', 2));
     await user.click(await screen.findByRole('button', { name: /Verify and open console/i }));
-    expect(pathOf(router)).toBe('/overview');
+    expect(pathOf(next)).toBe('/overview');
     return;
   }
   if (id === 'M3-031') {
-    await user.type(screen.getByLabelText(/work email/i), STAFF_ACCOUNTS[0].email);
-    await user.type(screen.getByLabelText(/^password/i), STAFF_ACCOUNTS[0].demoPassword);
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    cleanup();
+    renderAt(dest('/verify', 'otp', 0));
     await screen.findByRole('heading', { name: /Verify it's you/i });
     expect(JSON.parse(sessionStorage.getItem('mb-session') ?? '{}').stage).toBe('otp');
     return;
@@ -1840,11 +1825,8 @@ async function runSpecial(c: Case, router: ReturnType<typeof createMemoryRouter>
     await clickLabel('Sign out');
     expect(consoleStore.getState().drawer).toBeNull();
     cleanup();
-    renderAt(dest('/login', 'login'));
+    renderAt(dest('/verify', 'otp', 0));
     await ready();
-    await user.type(screen.getByLabelText(/work email/i), STAFF_ACCOUNTS[0].email);
-    await user.type(screen.getByLabelText(/^password/i), STAFF_ACCOUNTS[0].demoPassword);
-    await user.click(screen.getByRole('button', { name: 'Sign in' }));
     await user.click(await screen.findByRole('button', { name: /Verify and open console/i }));
     expect(consoleStore.getState().drawer).toBeNull();
     return;

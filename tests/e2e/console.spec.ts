@@ -15,18 +15,13 @@ async function openNav(page: Page) {
   if (await menu.isVisible()) await menu.click();
 }
 
-test('sign in with demo credentials, pass 2FA and land on the overview', async ({ page }) => {
-  await page.goto('/');
-  await expect(page).toHaveURL(/\/login$/);
-  await page.getByRole('button', { name: 'Show staff test credentials' }).click();
-  await page.getByRole('button', { name: /Compliance Officer/ }).click();
-  await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByRole('heading', { name: "Verify it's you" })).toBeVisible();
-  await expect(page.getByText('Compliance Officer', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Verify and open console' }).click();
+test('opens the overview from a staff session without listing passwords', async ({ page }) => {
+  await page.goto('/login');
+  await expect(page.getByRole('button', { name: /staff test credentials/i })).toHaveCount(0);
+  await expect(page.getByText(/DEMO ADMIN ACCOUNTS/i)).toHaveCount(0);
+  await signedIn(page, '/overview');
   await expect(page).toHaveURL(/\/overview$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
-  await expect(page.getByText('Signed in as Lydia Achieng · Compliance Officer')).toBeVisible();
 });
 
 test('rejects a wrong password with the design message', async ({ page }) => {

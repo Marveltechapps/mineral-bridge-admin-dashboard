@@ -44,7 +44,7 @@ describe('demo staff authentication', () => {
     expect(authenticateDemo('', '')).toEqual({ ok: false, error: 'Enter your work email and password.' });
     expect(authenticateDemo('nobody@x.com', 'pw')).toEqual({ ok: false, error: 'No staff account matches that email.' });
     expect(authenticateDemo('Grace.Kioko@mineralbridge.co.ke', 'wrong')).toEqual({ ok: false, error: 'Incorrect password for grace.kioko@mineralbridge.co.ke.' });
-    expect(authenticateDemo(' grace.kioko@mineralbridge.co.ke ', 'Desk2026!')).toEqual({ ok: true, index: 0 });
+    expect(authenticateDemo(' grace.kioko@mineralbridge.co.ke ', 'anything')).toEqual({ ok: false, error: 'Incorrect password for grace.kioko@mineralbridge.co.ke.' });
   });
 
   it('lets SSO continue with a known staff email only', () => {

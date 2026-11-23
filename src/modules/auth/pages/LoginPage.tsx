@@ -10,7 +10,6 @@ import { consoleActions, useConsole } from '@/store/consoleStore';
 import { BrandMark } from '../components/BrandMark';
 import { sessionActions, useSessionState } from '../hooks/useSession';
 import {
-  STAFF_ACCOUNTS,
   authenticateDemo,
   fetchDevLoginStatus,
   formatAuthError,
@@ -34,7 +33,6 @@ export default function LoginPage() {
   const emailRef = useRef<HTMLInputElement>(null);
   const passRef = useRef<HTMLInputElement>(null);
   const error = useSessionState((s) => s.authError);
-  const credsOpen = useSessionState((s) => s.credsOpen);
   const dark = useConsole((s) => s.theme === 'dark');
   const [devAvailable, setDevAvailable] = useState(false);
   const [devMode, setDevMode] = useState(false);
@@ -231,38 +229,6 @@ export default function LoginPage() {
               Developer login
             </Button>
           ) : null}
-          <Button variant="quiet" h={34} r={11} fs={11.5} style={{ height: 34 }} onClick={sessionActions.toggleCreds} aria-expanded={credsOpen}>
-            {credsOpen ? 'Hide staff test credentials' : 'Show staff test credentials'}
-          </Button>
-          {credsOpen && (
-            <div className={styles.creds}>
-              <div className={styles.credsHead}>STAFF TEST ACCOUNTS · CLICK TO FILL</div>
-              {STAFF_ACCOUNTS.map((c) => (
-                <button
-                  key={c.email}
-                  type="button"
-                  className={styles.cred}
-                  onClick={() => {
-                    if (emailRef.current) emailRef.current.value = c.email;
-                    if (passRef.current) passRef.current.value = c.demoPassword;
-                    sessionActions.setError(null);
-                  }}
-                >
-                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, width: '100%' }}>
-                    <Text size={11.5} weight={700} tone="ink">
-                      {c.role}
-                    </Text>
-                    <Text font="mono" size={10.5} weight={600} tone="ink2">
-                      {c.demoPassword}
-                    </Text>
-                  </span>
-                  <Text font="mono" size={10} weight={600} tone="ink3">
-                    {c.email}
-                  </Text>
-                </button>
-              ))}
-            </div>
-          )}
           <Text size={11} weight={600} tone="ink3" align="center" lh={1.6} style={{ paddingTop: 4 }}>
             Two-factor verification is required for every role with edit access.
           </Text>

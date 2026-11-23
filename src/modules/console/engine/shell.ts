@@ -20,7 +20,7 @@ export function signInView(c: ConsoleController): SignInVM {
       id: st.loginId, setId: (e: any) => c.setState({ loginId: e.target.value, loginErr: '' }),
       showPassword: email, password: st.loginPassword || '', setPassword: (e: any) => c.setState({ loginPassword: e.target.value, loginErr: '' }),
       err: st.loginErr, errStyle: err(st.loginErr), go: () => c.startLogin(), submit: 'Sign in',
-      accounts: email ? A.ROLES.map((x: any) => ({ role: x[1] + ' · ' + x[2], id: x[3], go: () => c.setState({ loginId: x[3], loginPassword: '', loginErr: '' }) })).filter((a: any) => a.id) : [],
+      accounts: [],
     },
     cd: {
       sent: 'We sent a 4-digit code ' + (email ? 'to ' + r[3] : 'on WhatsApp to ' + V.WA(st.pending)) + '.', who: r[2], role: r[1],

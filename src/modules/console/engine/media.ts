@@ -80,24 +80,74 @@ const csvRow = (a?: any) => a.map((x?: any) => { const s = x == null ? '' : Stri
 const parseCSV = (text?: any) => { const rows = []; let row = [], f = '', q = false; for (let i = 0; i < text.length; i++) { const ch = text[i]; if (q) { if (ch === '"' && text[i + 1] === '"') { f += '"'; i++; } else if (ch === '"') q = false; else f += ch; } else if (ch === '"') q = true; else if (ch === ',' || ch === '\t') { row.push(f); f = ''; } else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; } else f += ch; } if (f !== '' || row.length) { row.push(f); rows.push(row); } return rows.filter(r => r.some(x => String(x).trim() !== '')); };
 const sheetOf = (db?: any) => db.lots.map((l?: any) => [l.id, l.name, l.mineral, l.form, l.avail, l.unit, l.min, l.grade, l.origin, l.lab, l.cert, l.status]);
 V.exportSheet = (c?: any) => { const db = c.state.db; V.download('mineral-bridge-master-sheet-' + new Date().toISOString().slice(0, 10) + '.csv', [COLS].concat(sheetOf(db)).map(csvRow).join('\n'), 'text/csv'); V.log(c, 'Lot', 'master sheet', 'Master sheet exported', '', db.lots.length + ' lots'); c.commit('Master sheet exported · ' + db.lots.length + ' lots'); };
+const normHead = (h?: any) => String(h == null ? '' : h).trim().toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+const ALIAS: Record<string, string[]> = {
+  lot_id: ['lot_id', 'mineral_id', 'product_id', 'sku', 'id'],
+  name: ['name', 'mineral_name', 'product'],
+  subcategory: ['subcategory', 'sub_category', 'sub_category_name', 'category_and_sub_category_name', 'category_and_subcategory_name'],
+  category: ['category'],
+  form: ['form', 'product_form'],
+  quantity: ['quantity', 'availability', 'avail'],
+  unit: ['unit', 'units'],
+  min_order: ['min_order', 'minimum', 'min'],
+  grade: ['grade', 'purity', 'specification'],
+  origin: ['origin', 'country'],
+  lab: ['lab', 'laboratory'],
+  certificate: ['certificate', 'certificate_no', 'cert'],
+  status: ['status'],
+  price: ['price', 'rate', 'unit_price'],
+};
+const colAt = (head: string[], key: string) => {
+  const names = ALIAS[key] || [key];
+  for (let i = 0; i < names.length; i++) { const at = head.indexOf(names[i]); if (at >= 0) return at; }
+  return -1;
+};
+const trimCells = (row?: any) => {
+  const cells = (row || []).map((c?: any) => c == null ? '' : String(c));
+  while (cells.length && !cells[cells.length - 1].trim()) cells.pop();
+  return cells;
+};
 const validate = (db?: any, rows?: any) => {
-  const head = rows[0].map((h?: any) => String(h).trim().toLowerCase().replace(/\s+/g, '_'));
-  const miss = ['name', 'subcategory', 'quantity', 'unit'].filter(k => head.indexOf(k) < 0);
-  if (miss.length) return { fatal: 'Missing columns: ' + miss.join(', ') + '. Download the template to see the layout.' };
-  const get = (r?: any, k?: any) => { const i = head.indexOf(k); return i < 0 ? '' : String(r[i] == null ? '' : r[i]).trim(); };
-  return { rows: rows.slice(1).map((r?: any, n?: any) => {
-    const x: any = {}; COLS.forEach(k => { x[k] = get(r, k); });
-    const errs = [], f = V.subOf(db, x.subcategory.toLowerCase());
-    if (!x.name) errs.push('name is empty');
-    if (!f) errs.push('unknown subcategory "' + x.subcategory + '"'); else if (!f.sub.active || !f.cat.active) errs.push('subcategory is switched off');
-    if (['g', 'kg', 't', 'ct'].indexOf(x.unit) < 0) errs.push('unit must be g, kg, t or ct');
-    ['quantity'].forEach(k => { if (x[k] === '' || isNaN(+x[k]) || +x[k] < 0) errs.push(k + ' must be a number'); });
-    if (x.min_order !== '' && isNaN(+x.min_order)) errs.push('min_order must be a number');
-    if (x.status && ['listed', 'draft', 'archived', 'sold out'].indexOf(x.status) < 0) errs.push('status must be listed, draft, archived or sold out');
-    if (x.status === 'listed' && !x.certificate) errs.push('listed lots need a certificate');
+  const table = (rows || []).map(trimCells).filter((r: string[], i: number) => i === 0 || r.some((c) => c.trim() !== ''));
+  const head = (table[0] || []).map(normHead);
+  const sku = head.indexOf('mineral_id') >= 0 || head.indexOf('category_and_sub_category_name') >= 0 || (head.indexOf('mineral_name') >= 0 && head.indexOf('category') >= 0);
+  if (sku) {
+    const miss = [];
+    if (colAt(head, 'name') < 0) miss.push('mineral name');
+    if (colAt(head, 'category') < 0 && colAt(head, 'subcategory') < 0) miss.push('category');
+    if (miss.length) return { fatal: 'The SKU sheet is missing ' + miss.join(' and ') + '.' };
+  } else {
+    const miss = ['name', 'subcategory', 'quantity', 'unit'].filter(k => colAt(head, k) < 0);
+    if (miss.length) return { fatal: 'Missing columns: ' + miss.join(', ') + '. Use the SKU tab (Mineral ID, category, subcategory, mineral name). Quantity and price are not required on that sheet.' };
+  }
+  const get = (r?: any, k?: any) => { const i = colAt(head, k); return i < 0 ? '' : String(r[i] == null ? '' : r[i]).trim(); };
+  let skipped = 0;
+  const out = table.slice(1).map((r?: any, n?: any) => {
+    const x: any = {}; COLS.concat(['category', 'price']).forEach(k => { x[k] = get(r, k); });
+    if (!x.subcategory) x.subcategory = x.category;
+    if (!x.form) x.form = x.name;
+    const errs = [];
+    if (sku) {
+      if (!x.name) { skipped++; return null; }
+      if (!x.category && !x.subcategory) errs.push('category is empty');
+    } else {
+      const f = V.subOf(db, x.subcategory.toLowerCase());
+      if (!x.name) errs.push('name is empty');
+      if (!f) errs.push('unknown subcategory "' + x.subcategory + '"'); else if (!f.sub.active || !f.cat.active) errs.push('subcategory is switched off');
+      if (['g', 'kg', 't', 'ct'].indexOf(x.unit) < 0) errs.push('unit must be g, kg, t or ct');
+      if (x.quantity === '' || isNaN(+x.quantity) || +x.quantity < 0) errs.push('quantity must be a number');
+      if (x.min_order !== '' && isNaN(+x.min_order)) errs.push('min_order must be a number');
+      if (x.status && ['listed', 'draft', 'archived', 'sold out'].indexOf(x.status) < 0) errs.push('status must be listed, draft, archived or sold out');
+      const ex = x.lot_id && M().lot(db, x.lot_id);
+      if (!x.certificate && ex && ex.cert) x.certificate = ex.cert;
+      if (x.status === 'listed' && !x.certificate) errs.push('listed lots need a certificate');
+      return { n: n + 2, x, errs, mode: ex ? 'update' : 'new', ex };
+    }
     const ex = x.lot_id && M().lot(db, x.lot_id);
     return { n: n + 2, x, errs, mode: ex ? 'update' : 'new', ex };
-  }) };
+  }).filter(Boolean);
+  const csv = [table[0]].concat(table.slice(1)).map(csvRow).join('\n');
+  return { kind: sku ? 'sku' : 'lots', rows: out, skipped, csv };
 };
 D.sheet = (c?: any) => {
   const db = c.state.db, s = c.sheet;
@@ -105,26 +155,41 @@ D.sheet = (c?: any) => {
     const f = fs[0]; if (!f) return;
     let rows;
     try {
-      if (/\.xlsx?$/i.test(f.name)) { const X = await import(/* @vite-ignore */ XLSX_URL); const wb = X.read(await f.arrayBuffer()); rows = X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false }); }
+      if (/\.xlsx?$/i.test(f.name)) {
+        const X = await import(/* @vite-ignore */ XLSX_URL);
+        const wb = X.read(await f.arrayBuffer());
+        const sku = (wb.SheetNames || []).find((n?: any) => String(n).trim().toLowerCase() === 'sku');
+        rows = X.utils.sheet_to_json(wb.Sheets[sku || wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
+      }
       else rows = parseCSV(await f.text());
     } catch { c.sheet = { name: f.name, fatal: 'Could not read this file. Save it as CSV and try again.' }; return c.commit(); }
     if (!rows || rows.length < 2) { c.sheet = { name: f.name, fatal: 'The sheet has no data rows.' }; return c.commit(); }
     c.sheet = Object.assign({ name: f.name, size: kb(f.size) }, validate(db, rows)); c.commit();
   }), 1, 'catalogue'), { label: 'Download template', style: V.B[2], go: () => V.download('mineral-bridge-master-sheet-template.csv', [COLS, ['', 'Gold Doré Bar · Lot C', 'gold', 'Doré bar', '10', 'kg', '1', 'Au 91.0%', '60500', 'Ilesha, Osun · Nigeria', 'SGS Lagos', 'SGS-NG-26-4601', 'draft']].map(csvRow).join('\n'), 'text/csv') }, { label: 'Export current sheet', style: V.B[2], go: () => V.exportSheet(c) }];
-  const out: any = { title: 'Upload master sheet', sub: 'Create and update many lots at once from CSV or Excel', fields: [{ k: 'Columns', v: COLS.join(', ') }, { k: 'Matching', v: 'Rows with an existing lot_id update that lot; others create new lots' }, { k: 'Units', v: 'g, kg, t or ct only' }, { k: 'Subcategory', v: 'Use the key from Catalogue → Categories (e.g. gold, copper, lithium)' }], sections: [], inputs: [], actions: acts };
+  const out: any = { title: 'Upload master sheet', sub: 'Create and update many products at once from CSV or Excel', fields: [{ k: 'SKU workbook', v: 'Uses the SKU tab: Mineral ID, category, subcategory, mineral name. Quantity and price are not required.' }, { k: 'Lot sheet', v: COLS.join(', ') }, { k: 'Matching', v: 'Rows with an existing id update that product; others create new products' }], sections: [], inputs: [], actions: acts };
   if (s) {
     out.fields.unshift({ k: 'File', v: s.name + (s.size ? ' · ' + s.size : '') });
     if (s.fatal) { out.pill = 'cannot import'; out.pillStyle = V.pill('err'); out.fields.unshift({ k: 'Problem', v: s.fatal }); }
     else {
       const ok = s.rows.filter((r?: any) => !r.errs.length), bad = s.rows.filter((r?: any) => r.errs.length);
-      out.pill = ok.length + ' ready · ' + bad.length + ' with errors'; out.pillStyle = V.pill(bad.length ? 'warn' : 'ok');
-      out.sections = [{ title: 'Preview · ' + s.rows.length + ' rows', items: s.rows.slice(0, 40).map((r?: any) => ({ t: 'Row ' + r.n + ' · ' + (r.x.name || '(no name)'), s: r.errs.length ? r.errs.join(' · ') : (r.mode === 'update' ? 'Updates ' + r.x.lot_id : 'New lot') + ' · ' + r.x.quantity + ' ' + r.x.unit + ' · $' + r.x.ref_price + '/' + r.x.unit, r: r.errs.length ? 'Error' : r.mode === 'update' ? 'Update' : 'New', pill: true, pillStyle: V.pill(r.errs.length ? 'err' : r.mode === 'update' ? 'info' : 'ok') })) }];
+      out.pill = ok.length + ' ready' + (bad.length ? ' · ' + bad.length + ' with errors' : '') + (s.skipped ? ' · ' + s.skipped + ' header rows skipped' : ''); out.pillStyle = V.pill(bad.length ? 'warn' : 'ok');
+      out.sections = [{ title: 'Preview · ' + s.rows.length + ' rows', items: s.rows.slice(0, 40).map((r?: any) => ({ t: 'Row ' + r.n + ' · ' + (r.x.name || '(no name)'), s: r.errs.length ? r.errs.join(' · ') : s.kind === 'sku' ? (r.x.category ? r.x.category + ' › ' : '') + r.x.subcategory + ' · ' + (r.x.lot_id || 'new product') : (r.mode === 'update' ? 'Updates ' + r.x.lot_id : 'New lot') + ' · ' + r.x.quantity + ' ' + r.x.unit, r: r.errs.length ? 'Error' : r.mode === 'update' ? 'Update' : 'New', pill: true, pillStyle: V.pill(r.errs.length ? 'err' : r.mode === 'update' ? 'info' : 'ok') })) }];
       if (ok.length) out.actions.unshift(V.act(c, 'Import ' + ok.length + ' row' + (ok.length > 1 ? 's' : '') + (bad.length ? ' (skip ' + bad.length + ')' : ''), () => {
+        if (s.kind === 'sku' && db.live && V.persistMasterSheet) { V.persistMasterSheet(c, s.csv); return; }
         let nw = 0, up = 0;
-        ok.forEach((r?: any) => { const x = r.x, data = { name: x.name, mineral: x.subcategory.toLowerCase(), form: x.form, avail: +x.quantity, unit: x.unit, min: x.min_order === '' ? (r.ex ? r.ex.min : 0) : +x.min_order, grade: x.grade, ref: +x.ref_price, origin: x.origin, lab: x.lab, cert: x.certificate, status: x.status || (r.ex ? r.ex.status : 'draft') };
+        const slug = (v?: any) => String(v || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        ok.forEach((r?: any) => { const x = r.x;
+          if (s.kind === 'sku') {
+            const cid = slug(x.category || x.subcategory), sid = slug((x.category || '') + '-' + (x.subcategory || x.name));
+            const cats = V.cats(db); let cat = cats.find((k?: any) => k.id === cid);
+            if (!cat) { cat = { id: cid, label: x.category || x.subcategory, active: true, subs: [] }; cats.push(cat); }
+            if (!cat.subs.find((sub?: any) => sub.id === sid)) cat.subs.push({ id: sid, label: x.subcategory || x.name, active: true });
+            x.mineralKey = sid;
+          }
+          const data = { name: x.name, mineral: s.kind === 'sku' ? x.mineralKey : x.subcategory.toLowerCase(), form: x.form, avail: x.quantity === '' ? 0 : +x.quantity, unit: ['g', 'kg', 't', 'ct'].indexOf(x.unit) >= 0 ? x.unit : 'kg', min: x.min_order === '' ? (r.ex ? r.ex.min : 0) : +x.min_order, grade: x.grade, ref: +x.price || +x.ref_price || 0, origin: x.origin, lab: x.lab, cert: x.certificate, status: x.status || (r.ex ? r.ex.status : 'draft') };
           if (r.ex) { Object.assign(r.ex, data); up++; } else { db.lots.unshift(Object.assign({ id: x.lot_id || 'N-' + (8000 + db.lots.length), images: 0, docs: [], reserved: 0 }, data)); nw++; } });
         V.log(c, 'Lot', 'master sheet', 'Master sheet imported', '', nw + ' new · ' + up + ' updated · ' + bad.length + ' skipped', s.name);
-        c.sheet = null; c.setState({ drawer: null }); c.commit('Imported ' + nw + ' new and ' + up + ' updated lots' + (bad.length ? ' · ' + bad.length + ' rows skipped' : ''));
+        c.sheet = null; c.setState({ drawer: null }); c.commit('Imported ' + nw + ' new and ' + up + ' updated' + (s.kind === 'sku' ? ' products' : ' lots') + (bad.length ? ' · ' + bad.length + ' rows skipped' : ''));
       }, 1, 'catalogue'));
       if (bad.length) out.actions.push({ label: 'Download error report', style: V.B[2], go: () => V.download('master-sheet-errors.csv', [['row'].concat(COLS, ['errors'])].concat(bad.map((r?: any) => [r.n].concat(COLS.map(k => r.x[k]), [r.errs.join('; ')]))).map(csvRow).join('\n'), 'text/csv') });
     }

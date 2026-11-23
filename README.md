@@ -17,11 +17,12 @@ cd mineralbridge-backend
 Copy-Item .env.example .env
 docker compose up -d --wait mongo
 npm install
-npm run seed
 npm run dev
 ```
 
 The API listens on `PORT` from `.env`. The example sets `5001`, which is also the code default: http://127.0.0.1:5001 . Health: `/health`. Readiness (Mongo): `/ready`. Docs: `/docs`.
+
+On startup the API inserts any missing reference data, roles, and settings into the database from `MONGODB_URI`. You do not need `npm run seed`. On a local development database the first CEO is `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` from the API `.env` (the example uses `ceo@mineralbridge.co.ke` / `ChangeMe!Admin1`) and is created only when that email is absent. Sign in with those values against the API. The dashboard does not store a password of its own.
 
 In a second terminal:
 
@@ -41,7 +42,6 @@ cd mineralbridge-backend
 copy .env.example .env
 docker compose up -d --wait mongo
 npm install
-npm run seed
 npm run dev
 ```
 
@@ -60,7 +60,7 @@ Run `npm run typecheck` to check TypeScript. Dependencies must be installed in t
 
 ## Admin console
 
-`/` opens the console. Sign in at `/signin` with any demo admin account (click one to fill it), then any 4-digit code. The role you pick decides which actions are unlocked.
+`/` opens the console. Sign in at `/signin` with the CEO created by the API (see the startup section above). The session and permissions come from the API.
 
 | Path | Screen |
 | --- | --- |
