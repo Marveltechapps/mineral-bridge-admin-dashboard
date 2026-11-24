@@ -170,6 +170,19 @@ V.downloadReport = (c?: any, o?: any) => { V.download(o.sgs.file || (o.sgs.no + 
 
 // ---------- seller uploads ----------
 const sfiles = (o?: any) => {
+  // BUG-011: prefer server-provided files (with url / fileId) over empty placeholders.
+  if (Array.isArray(o.sell.files) && o.sell.files.length) return o.sell.files;
+  if (Array.isArray(o.sell.photoFileIds) && o.sell.photoFileIds.length) {
+    o.sell.files = o.sell.photoFileIds.map((id: string, i: number) => ({
+      kind: 'photo',
+      name: 'sell-' + A.tail(o.id) + '-photo-' + (i + 1) + '.jpg',
+      label: ['Material close-up', 'Full lot', 'Weighing scale reading', 'Bar stamp / markings', 'Storage location', 'Packaging'][i % 6],
+      size: '',
+      fileId: id,
+      url: '/v2/admin/files/' + encodeURIComponent(id) + '/content',
+    })).concat((o.sell.docs || []).map((d?: any, i?: any) => ({ kind: 'doc', name: String(d).replace(/[^\w\- ]/g, '').trim().replace(/\s+/g, '-').toLowerCase() + '.pdf', label: d, size: (180 + i * 40) + ' KB', url: '' })));
+    return o.sell.files;
+  }
   if (!o.sell.files) {
     const t = A.tail(o.id);
     o.sell.files = Array.from({ length: o.sell.photos || 0 }, (_, i) => ({ kind: 'photo', name: 'sell-' + t + '-photo-' + (i + 1) + '.jpg', label: ['Material close-up', 'Full lot', 'Weighing scale reading', 'Bar stamp / markings', 'Storage location', 'Packaging'][i % 6], size: (1.2 + i * 0.3).toFixed(1) + ' MB', url: '' }))

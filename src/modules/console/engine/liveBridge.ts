@@ -72,7 +72,10 @@ export function stepPayload(stepKey: string, order: any, form: Record<string, un
       validHours: Number(form.valid || 48),
     };
   }
-  if (stepKey === 'payOk') return { confirmedRef: form.ref ? String(form.ref) : undefined };
+  if (stepKey === 'payOk') {
+    const ref = form.ref || form.pref;
+    return { confirmedRef: ref ? String(ref) : undefined };
+  }
   if (stepKey === 'contractMb') return { signatory: form.signatory ? String(form.signatory) : undefined };
   if (stepKey === 'assigned') return { partnerId: String(form.partner || '') };
   if (stepKey === 'schedule') return { date: form.date, time: form.time, location: form.loc || '' };

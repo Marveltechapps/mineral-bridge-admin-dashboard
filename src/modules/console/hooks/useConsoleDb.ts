@@ -4,8 +4,8 @@ import { getConsoleDb } from '../../../services/console';
 export const CONSOLE_DB_KEY = ['console', 'db'] as const;
 
 /**
- * The console's working data set. Operators edit it in place (as the design does), so it never
- * goes stale, is never refetched behind their back, and is not structurally shared.
+ * Console working set. Live mode polls so sell-request / order changes from customers
+ * appear without a manual refresh (BUG-015). Demo/offline mode stays static.
  */
 export function useConsoleDb() {
   return useQuery({
@@ -14,7 +14,12 @@ export function useConsoleDb() {
     staleTime: Infinity,
     gcTime: Infinity,
     retry: false,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) => {
+      const db = query.state.data as { live?: boolean } | undefined;
+      return db?.live ? 15_000 : false;
+    },
+    refetchIntervalInBackground: false,
     structuralSharing: false,
   });
 }

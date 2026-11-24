@@ -12,7 +12,7 @@ const CATS = [
 ];
 const BT = { refinery: 'Refineries and smelters', house: 'International trading houses', industry: 'Manufacturing & industrial end-users', jewel: 'Jewelry manufacturers & artisans', investor: 'Retail investors & collectors', wholesale: 'B2B wholesalers' };
 const ST = { asm: 'Artisanal & small-scale miners', industrial: 'Industrial mining companies', coop: 'Mining cooperatives', dealer: 'Licensed local dealers / brokers', exporter: 'International traders / exporters', scrap: 'Individual salvagers / scrap collectors' };
-const NO_BIZ = ['investor', 'scrap'];
+const NO_BIZ = ['investor', 'asm', 'scrap'];
 const ROLES = [
   ['super', 'Super admin', 'Adaeze Okafor', 'adaeze@mineralbridge.com'],
   ['ops', 'Operations manager', 'Chiamaka Eze', 'chiamaka@mineralbridge.com'],
