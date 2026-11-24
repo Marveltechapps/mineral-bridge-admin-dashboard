@@ -2,6 +2,7 @@
 // Ported from the design file mb-admin-media.js. Behaviour and styles are kept as designed.
 import { MBA, MBV } from './registry';
 import { XLSX_URL } from './registry';
+import { kycDocPreview } from './kycDocs';
 
 const V = MBV, D = V.D, M = () => MBA;
 const now = () => Date.now();
@@ -251,7 +252,7 @@ const kycD = D.kyc;
 D.kyc = (c?: any, ref?: any) => {
   const v = kycD(c, ref), db = c.state.db, k = db.kyc.find((x?: any) => x.ref === ref);
   const sec = v.sections.find((s?: any) => s.title === 'Documents');
-  if (sec) sec.items = k.docs.map((d?: any, i?: any) => ({ t: d.label, s: (d.name || kycFile(k, d)) + (d.note ? ' · ' + d.note : ''), r: kycWord(d.status), pill: true, pillStyle: V.pill(kycTone(d.status)), ph: d.url ? '' : (/\.pdf$/.test(d.name || kycFile(k, d)) ? 'PDF' : 'SCAN'), img: d.url || '', go: () => c.openDrawer('kycDoc', ref + '|' + i), btns: [{ label: 'View', go: () => c.openDrawer('kycDoc', ref + '|' + i) }, { label: 'Download', go: () => { V.download(d.name || kycFile(k, d), kycBlob(db, k, d)); V.log(c, 'KYC', k.ref, 'Document downloaded', '', d.label); c.commit(); } }] }));
+  if (sec) sec.items = k.docs.map((d?: any, i?: any) => { const preview = kycDocPreview(d); return { t: d.label, s: (d.name || kycFile(k, d)) + (d.note ? ' · ' + d.note : ''), r: kycWord(d.status), pill: true, pillStyle: V.pill(kycTone(d.status)), ph: preview.ph, img: preview.img, go: () => c.openDrawer('kycDoc', ref + '|' + i), btns: [{ label: 'View', go: () => c.openDrawer('kycDoc', ref + '|' + i) }, { label: 'Download', go: () => { V.download(d.name || kycFile(k, d), kycBlob(db, k, d)); V.log(c, 'KYC', k.ref, 'Document downloaded', '', d.label); c.commit(); } }] }; });
   const flagged = k.docs.filter((d?: any) => d.status === 'flagged');
   if (flagged.length && k.status === 'pending') v.fields.push(kv('Flagged for re-upload', flagged.map((d?: any) => d.label).join(', ')));
   return v;
@@ -269,7 +270,7 @@ D.kycDoc = (c?: any, id?: any) => {
   acts.push(V.act(c, 'Attach scan for demo', () => V.pick('image/*,.pdf', false, async (fs?: any) => { const x = fs[0]; if (!x) return; d.file = x; d.name = x.name; d.size = kb(x.size); d.url = /^image\//.test(x.type) ? await readUrl(x) : ''; V.log(c, 'KYC', k.ref, 'Scan attached', '', d.label); c.commit(x.name + ' attached'); }), 2, 'kyc'));
   return {
     title: d.label, sub: k.ref + ' · ' + cu.name + ' · document ' + (i + 1) + ' of ' + k.docs.length, pill: kycWord(d.status), pillStyle: V.pill(kycTone(d.status)),
-    preview: { img: d.url || '', ph: (pdf ? 'PDF · ' : 'IMAGE · ') + d.label.toUpperCase() + ' · ' + name },
+    preview: (() => { const shot = kycDocPreview(d); return { img: shot.img, ph: shot.ph || ((pdf ? 'PDF · ' : 'IMAGE · ') + d.label.toUpperCase() + ' · ' + name) }; })(),
     fields: [kv('File', name + (d.size ? ' · ' + d.size : '')), kv('Customer', cu.name + (cu.business ? ' · ' + cu.business : '')), kv('Name on account', cu.name), kv('Country', cu.country), kv('ID type', k.idType), kv('Submitted', MBA.fmt(k.at)), kv('Status', kycWord(d.status)), kv('Note', d.note)],
     sections: [{ title: 'Check before verifying', items: (d.kind === 'selfie' ? ['Face matches the ID photo', 'ID held is the same document submitted', 'Not a screen photo or printout'] : d.kind === 'address' ? ['Dated within the last 3 months', 'Name matches the account', 'Address is complete and legible'] : d.kind === 'business' ? ['Registration or licence number visible', 'Business name matches the account', 'Not expired'] : ['All four corners visible, no glare', 'Name and date of birth legible', 'Not expired']).map(t => ({ t })) }],
     inputs: open && can && d.status !== 'flagged' ? [V.inp(c, 'docNote', 'What is wrong (if flagging)', '', true)] : [], actions: acts

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Ported from the design file mb-admin-v5.js. Behaviour and styles are kept as designed.
 import { MBA, MBV } from './registry';
+import { kycDocPreview } from './kycDocs';
 
 const V = MBV, D = V.D, A = MBA;
 const now = () => Date.now();
@@ -200,7 +201,7 @@ const cust0 = D.customer;
 D.customer = (c?: any, id?: any) => {
   const v = cust0(c, id), db = c.state.db, k = db.kyc.find((z?: any) => z.cust === id);
   if (k) {
-    v.sections = [{ title: 'Identity & business documents · ' + k.docs.length, items: k.docs.map((d?: any, i?: any) => ({ t: d.label, s: (d.name || '') + (d.note ? ' · ' + d.note : ''), ph: d.url ? '' : (d.kind === 'address' || d.kind === 'business' ? 'PDF' : 'SCAN'), img: d.url || '', r: d.status === 'ok' ? 'verified' : d.status, pill: true, pillStyle: V.pill(d.status === 'ok' ? 'ok' : d.status === 'submitted' ? 'info' : 'warn'), go: () => c.openDrawer('kycDoc', k.ref + '|' + i), btns: [{ label: 'View', go: () => c.openDrawer('kycDoc', k.ref + '|' + i) }] })) }].concat(v.sections || []);
+    v.sections = [{ title: 'Identity & business documents · ' + k.docs.length, items: k.docs.map((d?: any, i?: any) => { const preview = kycDocPreview(d); return { t: d.label, s: (d.name || '') + (d.note ? ' · ' + d.note : ''), ph: preview.ph, img: preview.img, r: d.status === 'ok' ? 'verified' : d.availability === 'unavailable' ? 'unavailable' : d.status, pill: true, pillStyle: V.pill(d.status === 'ok' ? 'ok' : d.status === 'submitted' ? 'info' : 'warn'), go: () => c.openDrawer('kycDoc', k.ref + '|' + i), btns: [{ label: 'View', go: () => c.openDrawer('kycDoc', k.ref + '|' + i) }] }; }) }].concat(v.sections || []);
     v.actions = [{ label: 'View documents', style: V.B[1], go: () => c.openDrawer('kycDoc', k.ref + '|0') }].concat(v.actions);
   }
   const sells = db.orders.filter((o?: any) => o.cust === id && o.kind === 'sell');
