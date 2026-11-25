@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { discrepancySummary, sellPriceVariation } from '../src/services/console/sellVariation.ts';
+import { approvalBlockers, discrepancyRecord, discrepancySummary, sellPriceVariation } from '../src/services/console/sellVariation.ts';
 
 const quoted = {
   kind: 'sell',
@@ -57,6 +57,34 @@ test('certified quantity of zero is a discrepancy', () => {
   assert.equal(vr.fair, 0);
   assert.equal(vr.pct, -100);
   assert.equal(vr.material, true);
+});
+
+test('a compliant matching inspection has nothing blocking approval', () => {
+  const order = { ...quoted, insp: { agency: 'Intertek', res: { weight: 2 } }, sgs: { no: '123456', grade: '88%', net: 2, result: 'Compliant' } };
+  const vr = sellPriceVariation(order);
+  assert.deepEqual(approvalBlockers(order, vr), []);
+});
+
+test('a non-compliant report blocks approval even when the quantity matches', () => {
+  const order = { ...quoted, insp: { agency: 'Intertek', res: { weight: 2, result: 'Quantity and condition verified' } }, sgs: { agency: 'Intertek', no: '123456', grade: '88%', net: 2, result: 'Non-compliant' } };
+  const vr = sellPriceVariation(order);
+  assert.equal(vr.qtyMatch, true);
+  assert.equal(vr.failed, true);
+  const blocks = approvalBlockers(order, vr);
+  assert.equal(blocks.length, 1);
+  assert.match(blocks[0], /123456/);
+  assert.match(blocks[0], /non-compliant/);
+  assert.equal(order.sgs.result, 'Non-compliant');
+});
+
+test('an unresolved quantity difference blocks approval and a resolved one does not', () => {
+  const order = { ...quoted, insp: { agency: 'Intertek', res: { weight: 1.5 } }, sgs: { no: '123456', grade: '88%', net: 1.5, result: 'Compliant' } };
+  const open = approvalBlockers(order, sellPriceVariation(order));
+  assert.match(open.join(' '), /Quantity discrepancy is unresolved/);
+  const resolved = approvalBlockers({ ...order, hist: [{ text: 'Discrepancy resolved', note: 'Discrepancy resolved: accepted' }] }, sellPriceVariation(order));
+  assert.deepEqual(resolved, []);
+  const pending = approvalBlockers({ ...order, hold: { t: 'discrepancy', note: discrepancyRecord({ declared: 2, actual: 1.5, unit: 'kg', reason: 'short weight' }) } }, sellPriceVariation(order));
+  assert.match(pending.join(' '), /pending/);
 });
 
 test('a grade difference blocks approval without changing the quoted amount', () => {

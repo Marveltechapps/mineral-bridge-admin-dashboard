@@ -1,7 +1,7 @@
 import { adminApi, AdminApiError } from '../../lib/adminApi';
 import type { ConsoleDb } from '../../types/console';
 
-export { discrepancySummary, sellPriceVariation } from './sellVariation';
+export { approvalBlockers, discrepancyRecord, discrepancyResolved, discrepancyState, discrepancySummary, isNonCompliantReport, sellPriceVariation } from './sellVariation';
 export type { SellVariation } from './sellVariation';
 
 /** Empty working set used before a staff session exists. It is not sample data. */
@@ -59,11 +59,18 @@ function hydrateSellReports<T extends ConsoleDb>(db: T): T {
   const orders = Array.isArray(db.orders) ? db.orders as Array<Record<string, unknown>> : [];
   const docs = Array.isArray(db.docs) ? db.docs as Array<Record<string, unknown>> : [];
   for (const order of orders) {
-    if (!order || order.kind !== 'sell' || order.sgs) continue;
-    if (!AFTER_REPORT.has(String(order.serverStep || ''))) continue;
+    if (!order || order.kind !== 'sell') continue;
     const mine = docs.filter((doc) => doc && doc.status === 'issued' && (doc.eid === order.id || (order.orderId && doc.eid === order.orderId)));
     const cert = mine.find((doc) => /test certificate/i.test(String(doc.type || '')))
       || mine.find((doc) => /inspection report/i.test(String(doc.type || '')));
+    const sgs = order.sgs as { docNo?: string; liveDoc?: boolean; fileId?: string } | undefined;
+    if (sgs && cert && !sgs.docNo) {
+      sgs.docNo = String(cert.no || '');
+      sgs.liveDoc = Boolean(cert.no);
+      sgs.fileId = sgs.fileId || String(cert.fileId || '');
+    }
+    if (order.sgs) continue;
+    if (!AFTER_REPORT.has(String(order.serverStep || ''))) continue;
     const hist = Array.isArray(order.hist) ? order.hist as Array<{ note?: string }> : [];
     const meta = [...hist].reverse().map((row) => parseInspectionReportNote(row?.note)).find((row) => row != null) || null;
     if (!cert && !meta) continue;

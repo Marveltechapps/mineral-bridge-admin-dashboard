@@ -56,7 +56,7 @@
 .fields { display: flex; flex-direction: column; gap: 9px; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .fieldLabel { font-size: 11px; font-weight: 700; color: var(--ink2); }
-.input { height: 38px; border: 1px solid var(--line); border-radius: 11px; background: var(--soft); padding: 0 12px; font-size: 12.5px; font-weight: 700; color: var(--ink); outline: none; }
+.input { width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 11px; background: var(--soft); padding: 0 12px; font-size: 12.5px; font-weight: 700; color: var(--ink); outline: none; }
 .choices { display: flex; flex-wrap: wrap; gap: 6px; }
 .acts { display: flex; flex-direction: column; gap: 8px; }
 .signedAs { font-size: 10.5px; font-weight: 600; color: var(--ink3); }

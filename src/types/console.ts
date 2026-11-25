@@ -10,7 +10,7 @@ import type { ConsoleIconName } from '../constants/nav';
 export type ConsoleDb = Record<string, unknown>;
 
 export type Go = (event?: SyntheticEvent) => void;
-export type Change = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+export type Change = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
 
 export type Theme = 'light' | 'dark';
 export type AllocMode = 'catalog' | 'auction' | 'reserve';
@@ -107,7 +107,7 @@ export interface ConsoleController {
 
 // ---------- shared pieces ----------
 export interface ActionVM { label: string; style: string; go: Go }
-export interface ChoiceVM { label: string; style: string; go: Go }
+export interface ChoiceVM { label: string; style: string; go: Go; value?: string }
 
 export interface InputVM {
   label: string;
@@ -116,6 +116,7 @@ export interface InputVM {
   isText: boolean;
   isArea: boolean;
   isChoice?: boolean;
+  isSelect?: boolean;
   choices?: ChoiceVM[];
 }
 

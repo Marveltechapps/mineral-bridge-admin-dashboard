@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Ported from the design file mb-admin-v6.js. Behaviour and styles are kept as designed.
-import { sellPriceVariation } from '../../../services/console/consoleService';
+import { approvalBlockers, discrepancyRecord, discrepancyState, sellPriceVariation } from '../../../services/console/consoleService';
 import { MBA, MBV } from './registry';
 
 const V = MBV, D = V.D, A = MBA;
@@ -34,31 +34,97 @@ A.build = function (t?: any) {
 
 // ---------- logistics partner: pick from the partner list ----------
 const sd0 = A.stageData;
-A.stageData = function (db?: any, _o?: any, key?: any, _at?: any, p?: any) {
-  if (key === 'assigned' && p && p.partner) {
-    const pt = db.partners.find((x?: any) => x.name === p.partner);
-    if (pt) { p.mode = p.mode || pt.modes.split(',')[0].trim(); p.contact = p.contact || pt.contact; }
+A.stageData = function (db?: any, o?: any, key?: any, _at?: any, p?: any) {
+  const partnerOf = (value?: any) => (db && db.partners || []).find((x?: any) => x && (x.id === value || x.name === value));
+  if (p && p.partner && (key === 'assigned' || key === 'picked')) {
+    const pt = partnerOf(p.partner);
+    if (pt) {
+      const mode = String(pt.modes || '').split(',')[0];
+      p.partner = pt.name;
+      p.mode = p.mode || (mode ? mode.trim() : '');
+      p.contact = p.contact || pt.contact;
+    }
+  }
+  if (p && (key === 'schedule' || key === 'inspect' || key === 'sgs')) {
+    const agency = partnerOf(p.agency);
+    if (agency) p.agency = agency.name;
+    const inspector = partnerOf(p.inspector);
+    if (inspector) p.inspector = inspector.name;
   }
   // eslint-disable-next-line prefer-rest-params -- kept as in the design source
-  return sd0.apply(this, arguments);
+  const result = sd0.apply(this, arguments);
+  if (key === 'picked' && o && o.ship && p && p.partner) o.ship.partner = p.partner;
+  if (key === 'inspect' && o && o.insp && p && p.agency) {
+    const agency = partnerOf(p.agency);
+    o.insp.agency = agency ? agency.name : p.agency;
+  }
+  return result;
 };
 const choiceField = (c?: any, k?: any, label?: any, opts?: any, def?: any) => {
   if (c.form[k] == null && def) c.form[k] = def;
   const cur = c.form[k];
   return { label, isChoice: true, isText: false, isArea: false, value: '', set: () => {}, choices: opts.map((o?: any) => ({ label: o[1], style: V.chip(cur === o[0]), go: () => { c.form[k] = o[0]; c.commit(); } })) };
 };
+const selectField = (c?: any, k?: any, label?: any, opts?: any) => {
+  const cur = c.form[k] == null ? '' : String(c.form[k]);
+  return {
+    label, isSelect: true, isChoice: false, isText: false, isArea: false, value: cur,
+    set: (e?: any) => { c.form[k] = e && e.target ? e.target.value : ''; c.commit(); },
+    choices: (opts || []).map((o?: any) => ({ label: o[1], value: o[0], style: '', go: () => { c.form[k] = o[0]; c.commit(); } })),
+  };
+};
 
 // ---------- price variation ----------
 V.variation = (o?: any) => sellPriceVariation(o);
 V.markDiscrepancy = (c?: any, o?: any) => {
   const vr = V.variation(o);
-  if (!vr || !vr.material) return c.toast('Certified quantity and grade match the declaration');
-  const note = 'Declared ' + A.qfmt(vr.declared, o.sell.unit) + ' · certified ' + A.qfmt(vr.cert, o.sell.unit) + (vr.gradeMatch ? '' : ' · grade ' + o.sell.grade + ' → ' + (o.sgs ? o.sgs.grade : ''));
-  o.hold = { t: 'discrepancy', note, at: now() };
-  o.sAt = now();
-  o.hist.push({ at: now(), who: V.me(c).name, role: V.me(c).label, text: 'Quantity discrepancy', note });
-  V.tell(c, o.cust, 'Quantity discrepancy on ' + o.id, o.id);
-  c.commit('Quantity discrepancy recorded — payment stays blocked');
+  if (!vr || vr.cert == null || (vr.qtyMatch && vr.gradeMatch)) return c.toast('Certified quantity and grade match the declaration. A non-compliant report is corrected by uploading a new certificate.');
+  if (o.hold && o.hold.t === 'discrepancy') return c.toast('This request is already held for a quantity discrepancy. Payment stays blocked.');
+  V.form(c, 'disc-' + o.id, { title: 'Record quantity discrepancy', sub: o.id + ' · expected ' + A.qfmt(vr.declared, o.sell.unit) + ' · inspected ' + A.qfmt(vr.cert, o.sell.unit), mode: 'New', perm: 'ops', cta: 'Submit for review',
+    info: [kv('Expected quantity', A.qfmt(vr.declared, o.sell.unit)), kv('Inspected quantity', A.qfmt(vr.cert, o.sell.unit)), kv('Difference', pctTxt(vr.qtyPct || 0)), kv('Grade declared → certified', (o.sell.grade || '—') + ' → ' + (o.sgs ? o.sgs.grade : '—'))],
+    fields: [F('reason', 'Discrepancy reason', '', 'area', null, 1), F('notes', 'Supporting notes or evidence', '', 'area')],
+    save: (x?: any) => {
+      const reason = String(x.reason || '').trim();
+      if (reason.length < 5) return 'Enter the discrepancy reason';
+      const note = discrepancyRecord({ declared: vr.declared, actual: Number(vr.cert), unit: o.sell.unit, reason, notes: x.notes, status: 'pending' });
+      if (o.live && V.persistDiscrepancy) { V.persistDiscrepancy(c, o, note); return; }
+      o.hold = { t: 'discrepancy', note, at: now() };
+      o.sAt = now();
+      o.hist.push({ at: now(), who: V.me(c).name, role: V.me(c).label, text: 'Quantity discrepancy', note });
+      V.tell(c, o.cust, 'Quantity discrepancy on ' + o.id, o.id);
+      c.setState({ drawer: null });
+      c.commit('Quantity discrepancy submitted — payment stays blocked');
+    } });
+};
+V.requestCorrectedReport = (c?: any, o?: any) => {
+  if (!o.sgs || !/non[\s_-]*compliant/i.test(String(o.sgs.result || ''))) return c.toast('The current report is not non-compliant');
+  V.form(c, 'corr-' + o.id, { title: 'Request a corrected report', sub: (o.sgs.agency || 'Agency') + ' · ' + o.sgs.no + ' · ' + o.sgs.result, mode: 'Edit', perm: 'inspection', cta: 'Request correction',
+    info: [kv('Current result', o.sgs.result), kv('Certificate', o.sgs.no), kv('Grade', o.sgs.grade)],
+    fields: [F('note', 'What the agency must correct', o.sgs.remarks || ('Report ' + o.sgs.no + ' is ' + o.sgs.result), 'area', null, 1)],
+    save: (x?: any) => {
+      const note = String(x.note || '').trim();
+      if (note.length < 5) return 'Say what must be corrected';
+      if (o.live && V.persistCorrectionRequest) { V.persistCorrectionRequest(c, o, note); return; }
+      o.hist.push({ at: now(), who: V.me(c).name, role: V.me(c).label, text: 'Corrected report requested', note });
+      c.setState({ drawer: null });
+      c.commit('Correction requested. The saved result stays ' + o.sgs.result);
+    } });
+};
+V.recordReinspection = (c?: any, o?: any) => {
+  if (!o.insp || !o.insp.res) return c.toast('Record the inspection before a re-inspection');
+  const r = o.insp.res;
+  V.form(c, 'rein-' + o.id, { title: 'Record re-inspection', sub: o.id + ' · ' + (o.insp.agency || 'Agency') + ' · the certificate is not changed', mode: 'Edit', perm: 'inspection', cta: 'Save re-inspection',
+    fields: [F('weight', 'Inspected quantity (' + o.sell.unit + ')', r.weight, 'num', null, 1), F('seals', 'Seal numbers', r.seals, 'text'), F('inspector', 'Agency inspector', o.insp.inspector || '', 'text'), F('result', 'On-site result', r.result || '', 'text', null, 1), F('notes', 'Notes', r.notes || '', 'area')],
+    save: (x?: any) => {
+      if (!String(x.result || '').trim()) return 'Record the on-site result';
+      if (o.live && V.persistReinspection) { V.persistReinspection(c, o, x); return; }
+      r.history = (r.history || []).concat([{ weight: r.weight, result: r.result, notes: r.notes, at: now() }]);
+      r.weight = +x.weight; r.seals = x.seals; r.result = x.result; r.notes = x.notes || '';
+      if (x.inspector) o.insp.inspector = x.inspector;
+      o.hist.push({ at: now(), who: V.me(c).name, role: V.me(c).label, text: 'Re-inspection recorded', note: x.result });
+      c.setState({ drawer: null });
+      c.commit('Re-inspection recorded. The certificate result is unchanged');
+    } });
 };
 const locked = (o?: any) => !!(o.payout && o.payout.ref) || A.nextInfo(o).done;
 V.adjustPrice = (c?: any, o?: any) => {
@@ -160,11 +226,36 @@ V.rowActs.lots = (c?: any, l?: any) => [{ label: 'Edit', go: () => { const v = D
 const od0 = V.orderDetail;
 V.orderDetail = (c?: any, o?: any) => {
   const out = od0(c, o), db = c.state.db, k = curKey(o);
-  // logistics partner choice
-  if (k === 'assigned' && !o.hold && out.next) {
-    const parts = db.partners.filter((p?: any) => p.type === 'logistics' && p.active);
-    out.next.fields = [choiceField(c, 'partner', 'Logistics partner *', parts.map((p?: any) => [p.name, p.name + ' · ' + p.modes]), parts[0] && parts[0].name)].concat(out.next.fields.filter((f?: any) => !/Logistics partner/.test(f.label)));
-    if (!parts.length) out.next.note = 'No active logistics partner — add or reactivate one under Logistics → Partners.';
+  const inspectionType = (type?: any) => type === 'inspection' || type === 'inspection_agency' || type === 'lab' || type === 'lab_assay';
+  const logisticsType = (type?: any) => type === 'logistics' || type === 'bonded_carrier';
+  const activeOf = (type?: any) => (db.partners || []).filter((p?: any) => p && p.active && (type === 'inspection' ? inspectionType(p.type) : type === 'logistics' ? logisticsType(p.type) : p.type === type));
+  const companyLabel = (p?: any) => p.name + (p.modes ? ' · ' + p.modes : p.regions ? ' · ' + p.regions : '');
+  const logisticsStep = k === 'assigned' || (o.kind === 'sell' && k === 'picked' && (!o.serverStep || o.serverStep === 'ship'));
+  if (logisticsStep && !o.hold && out.next) {
+    const parts = activeOf('logistics');
+    const assigned = parts.find((p?: any) => o.ship && (p.id === o.ship.partner || p.name === o.ship.partner));
+    if (assigned && (c.form.partner == null || c.form.partner === '')) c.form.partner = assigned.id;
+    const chosen = parts.find((p?: any) => p.id === c.form.partner);
+    out.next.fields = [selectField(c, 'partner', 'Logistics partner *', parts.map((p?: any) => [p.id, companyLabel(p)]))].concat(out.next.fields.filter((f?: any) => !/Logistics partner/.test(f.label)));
+    if (!Array.isArray(db.partners)) out.next.note = 'Logistics companies could not be loaded. Refresh the page and try again.';
+    else if (!parts.length) out.next.note = 'No active logistics company. Add one, or reactivate a paused company, under Logistics → Partners.';
+    else if (chosen) out.next.note = 'Selected company: ' + chosen.name + (assigned && assigned.id === chosen.id ? '. Saved on this request.' : '. Save the assignment before recording pickup.');
+    if (!parts.length) out.next.acts = [{ label: 'Add logistics company', style: V.B[2], go: () => V.newPartner(c) }].concat(out.next.acts || []);
+    else if (o.live && o.serverStep === 'ship' && V.persistLogisticsAssignment) out.next.acts = (out.next.acts || []).concat([V.act(c, 'Save assignment', () => V.persistLogisticsAssignment(c, o), 2, 'logistics')]);
+    out.next.hasFields = true; out.next.hasNote = !!out.next.note;
+  }
+  if ((k === 'schedule' || k === 'inspect') && !o.hold && out.next) {
+    const agencies = activeOf('inspection');
+    const inspectors = activeOf('inspector');
+    const booked = agencies.find((p?: any) => o.insp && (p.id === o.insp.agency || p.name === o.insp.agency));
+    if (booked && (c.form.agency == null || c.form.agency === '')) c.form.agency = booked.id;
+    let fields = out.next.fields.filter((f?: any) => !/Inspection agency|On-site result/.test(f.label));
+    if (inspectors.length) fields = fields.filter((f?: any) => !/Agency inspector/.test(f.label));
+    const choices: any[] = [selectField(c, 'agency', 'Inspection agency *', agencies.map((p?: any) => [p.id, companyLabel(p)]))];
+    if (inspectors.length) choices.push(selectField(c, 'inspector', 'Agency inspector', inspectors.map((p?: any) => [p.id, companyLabel(p)])));
+    if (k === 'inspect') choices.push(choiceField(c, 'result', 'On-site result *', [['Quantity and condition verified', 'Quantity and condition verified'], ['Quantity differs from declaration', 'Quantity differs from declaration'], ['Condition issue', 'Condition issue']]));
+    out.next.fields = choices.concat(fields);
+    if (!agencies.length) out.next.note = 'No active inspection company — add or reactivate one under Inspection → Partners.';
     out.next.hasFields = true; out.next.hasNote = !!out.next.note;
   }
   // inspection editing locked once the request is past final approval
@@ -191,22 +282,37 @@ V.orderDetail = (c?: any, o?: any) => {
     if (o.vault) rows.push({ k: 'Received at vault', v: A.qfmt(o.vault.weight, o.sell.unit) + ' · ' + A.fmt(o.vault.at) });
     if (o.vaultLot) rows.push({ k: 'Stock lot', v: o.vaultLot });
     out.cards.unshift({ title: 'Transaction summary', rows, list: [], hasList: false });
+    const inspCard = (out.cards || []).find((card?: any) => card && card.title === 'Third-party inspection');
+    if (inspCard && vr && vr.cert != null && (vr.failed || !vr.qtyMatch || !vr.gradeMatch || (o.hold && o.hold.t === 'discrepancy'))) {
+      const diff = Number(vr.cert) - Number(vr.declared);
+      inspCard.rows = (inspCard.rows || []).concat([
+        { k: 'Expected quantity', v: A.qfmt(vr.declared, o.sell.unit) },
+        { k: 'Inspected quantity', v: A.qfmt(vr.cert, o.sell.unit) },
+        { k: 'Quantity difference', v: (diff > 0 ? '+' : '') + A.qfmt(diff, o.sell.unit) },
+      ]);
+      if (o.hold && o.hold.t === 'discrepancy') inspCard.rows.push({ k: 'Discrepancy', v: discrepancyState(o.hold.note) === 'rejected' ? 'Rejected' : 'Pending' });
+    }
     if (vr && vr.cert != null) {
       const priceTitle = vr.material && !vr.qtyMatch ? ' · ' + pctTxt(vr.pct) : vr.material && !vr.gradeMatch ? ' · grade differs' : vr.failed ? ' · non-compliant' : ' · none';
       const vrows = [{ k: 'Declared quantity', v: A.qfmt(vr.declared, o.sell.unit) }, { k: 'Certified quantity', v: A.qfmt(vr.cert, o.sell.unit) + ' (' + pctTxt(vr.qtyPct) + ')' }, { k: 'Grade declared → certified', v: o.sell.grade + ' → ' + (o.sgs ? o.sgs.grade : 'awaiting report') }, { k: 'Originally quoted', v: money(vr.quoted) }, { k: 'Value at certified quantity', v: money(vr.fair) + ' (' + (vr.diff >= 0 ? '+' : '−') + money(Math.abs(vr.diff)) + ', ' + pctTxt(vr.pct) + ')' }, { k: 'Payable now', v: money(o.total) + (vr.applied ? ' · adjusted' : ' · unchanged') }];
       out.cards.splice(1, 0, { title: 'Price variation' + priceTitle, rows: vrows, hasList: !!(o.variations && o.variations.length), list: (o.variations || []).slice().reverse().map((x?: any) => ({ t: money(x.from) + ' → ' + money(x.to) + ' · ' + x.kind, s: x.note + ' · ' + x.by, r: A.fmt(x.at), go: () => {}, style: 'display:flex; align-items:center; gap:12px; padding:9px 0; border-top:1px solid var(--line2);' })) });
       if (!locked(o)) out.manage.unshift(V.act(c, 'Adjust price for variation', () => V.adjustPrice(c, o), vr.material && !vr.qtyMatch && !vr.applied ? 1 : 2, 'trading'));
-      if (out.next && !locked(o) && !o.hold && vr.material && ['approved', 'reportOk', 'payout'].indexOf(k) >= 0) {
-        const parts = [];
-        if (!vr.qtyMatch) parts.push('Certified quantity ' + A.qfmt(vr.cert, o.sell.unit) + ' differs from declared ' + A.qfmt(vr.declared, o.sell.unit) + ' (' + pctTxt(vr.qtyPct) + ')');
-        if (!vr.gradeMatch) parts.push('Certified grade ' + (o.sgs ? o.sgs.grade : '') + ' differs from declared ' + o.sell.grade);
-        if (vr.failed) parts.push('The inspection result is non-compliant');
-        out.next.note = (out.next.note ? out.next.note + ' ' : '') + parts.join('. ') + '. Final approval and payment stay blocked until the report is corrected or the discrepancy is resolved.';
+      const blocks = approvalBlockers(o, vr);
+      if (out.next && !locked(o) && blocks.length && ['approved', 'reportOk', 'payout'].indexOf(k) >= 0) {
+        out.next.note = blocks.join(' ');
         out.next.hasNote = true;
-        if (k === 'approved' || k === 'payout') out.next.acts = [V.act(c, 'Record quantity discrepancy', () => V.markDiscrepancy(c, o), 3, 'ops')];
-        else if (o.live) { out.next.acts = (out.next.acts || []).filter((a?: any) => !/Simulate/.test(a.label)); out.next.acts.unshift(V.act(c, 'Record quantity discrepancy', () => V.markDiscrepancy(c, o), 3, 'ops')); }
+        const fix = [];
+        if (vr.failed) {
+          fix.push(V.act(c, 'Request corrected report', () => V.requestCorrectedReport ? V.requestCorrectedReport(c, o) : c.toast('Corrected-report requests are available on a live order'), 2, 'inspection'));
+          fix.push(V.act(c, 'Upload corrected report', () => V.uploadReport(c, o), 1, 'inspection'));
+          fix.push(V.act(c, 'Record re-inspection', () => V.recordReinspection ? V.recordReinspection(c, o) : c.toast('Re-inspection is available on a live order'), 2, 'inspection'));
+        }
+        if (!vr.qtyMatch || !vr.gradeMatch) fix.push(V.act(c, 'Record quantity discrepancy', () => V.markDiscrepancy(c, o), 3, 'ops'));
+        if (!fix.length) fix.push(V.act(c, 'Upload corrected report', () => V.uploadReport(c, o), 1, 'inspection'));
+        if (k === 'approved' || k === 'payout') out.next.acts = fix;
+        else if (o.live) out.next.acts = fix.concat((out.next.acts || []).filter((a?: any) => !/Simulate|Give final approval|Release payment/.test(a.label)));
       } else if (out.next && !locked(o) && o.live && k === 'reportOk') {
-        out.next.note = (out.next.note ? out.next.note + ' ' : '') + 'The seller accepts this report in the app. Give final approval is the next Mineral Bridge step, and it is available only when the certified quantity and grade match.';
+        out.next.note = (out.next.note ? out.next.note + ' ' : '') + 'The seller accepts this report in the app. Final approval is available only when the report is compliant and any quantity discrepancy is resolved.';
         out.next.hasNote = true;
       }
     }

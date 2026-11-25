@@ -57,7 +57,7 @@ function stageData(db?: any, o?: any, key?: any, at?: any, p?: any, seed?: any) 
       q = { no: 'Q-' + t + (rev > 1 ? '-R' + rev : ''), rev, lines, prod, fee, transport: tr, other: oth, otherLabel: p.otherLabel || '', rate: p.rate || '', total: prod + fee + tr + oth, valid: at + (p.valid != null ? +p.valid : S.buyValidity) * D, at, status: 'issued' };
     } else {
       const offer = !seed ? Math.round(+p.offer || 0) : Math.round(sellValue(o) * (rev > 1 ? 0.9 : 0.93)), ded = !seed ? Math.round(+p.deduct || 0) : 0, total = offer - ded;
-      q = { no: 'Q-' + t + (rev > 1 ? '-R' + rev : ''), rev, lines: [{ name: o.sell.name, qty: o.sell.qty, unit: o.sell.unit, price: offer }], prod: offer, fee: 0, transport: 0, deduct: ded, deductLabel: p.deductLabel || '', rate: p.rate || '', total, valid: at + (p.valid != null ? +p.valid : S.sellValidity) * H, at, status: 'issued', cond: 'Subject to Mineral Bridge inspection and SGS test report' };
+      q = { no: 'Q-' + t + (rev > 1 ? '-R' + rev : ''), rev, lines: [{ name: o.sell.name, qty: o.sell.qty, unit: o.sell.unit, price: offer }], prod: offer, fee: 0, transport: 0, deduct: ded, deductLabel: p.deductLabel || '', rate: p.rate || '', total, valid: at + (p.valid != null ? +p.valid : S.sellValidity) * H, at, status: 'issued', cond: 'Subject to Mineral Bridge inspection and a third-party test report' };
     }
     o.quotes.push(q); o.total = q.total; doc('Price quotation', q.no);
   }
@@ -77,20 +77,20 @@ function stageData(db?: any, o?: any, key?: any, at?: any, p?: any, seed?: any) 
   }
   if (key === 'payOk') { o.pay.status = 'confirmed'; o.pay.ref = p.ref || ('TRX-' + t); o.pay.confirmedAt = at; db.docs.forEach((d?: any) => { if (d.no === 'PR-' + t && d.status === 'processing') d.status = 'issued'; }); doc('Tax invoice', 'INV-' + t); }
   if (key === 'assigned' && o.kind === 'buy') {
-    o.ship = { id: p.sid || 'SSF-' + t, partner: p.partner || 'Sahel Secure Freight', mode: p.mode || 'Road', scope: c.country === 'Nigeria' ? 'Domestic' : 'Cross-border', contact: p.contact || 'Musa Ibrahim · +234 803 555 0142', from: 'Mineral Bridge bonded vault, Apapa, Lagos', to: (cname(c)) + ', ' + c.country, events: [], status: '' };
+    o.ship = { id: p.sid || 'SSF-' + t, partner: p.partner || '', mode: p.mode || 'Road', scope: c.country === 'Nigeria' ? 'Domestic' : 'Cross-border', contact: p.contact || 'Musa Ibrahim · +234 803 555 0142', from: 'Mineral Bridge bonded vault, Apapa, Lagos', to: (cname(c)) + ', ' + c.country, events: [], status: '' };
     ev('Partner assigned', 'Apapa, Lagos'); doc('Consignment note', o.ship.id);
   }
   if (key === 'picked') {
-    if (!o.ship) o.ship = { id: 'SSF-' + t, partner: 'Sahel Secure Freight', mode: 'Road', scope: 'Domestic', contact: 'Musa Ibrahim · +234 803 555 0142', from: (o.form && o.form.slot.location) || A.SITES[o.cust] || 'Seller site', to: 'Mineral Bridge bonded vault, Apapa, Lagos', events: [], status: '' };
+    if (!o.ship) o.ship = { id: 'SSF-' + t, partner: p.partner || '', mode: 'Road', scope: 'Domestic', contact: 'Musa Ibrahim · +234 803 555 0142', from: (o.form && o.form.slot.location) || A.SITES[o.cust] || 'Seller site', to: 'Mineral Bridge bonded vault, Apapa, Lagos', events: [], status: '' };
     ev(o.kind === 'sell' ? 'Collected' : 'Picked up', p.loc || o.ship.from); if (o.kind === 'sell') doc('Consignment note', o.ship.id);
   }
   if (key === 'transit') ev('In transit', p.loc || (o.kind === 'sell' ? 'Ibadan checkpoint' : 'Lagos–Ibadan Expressway'));
   if (key === 'delivered') { ev('Delivered', p.loc || o.ship.to); doc('Proof of delivery', 'POD-' + t); }
   if (key === 'receipt') o.receiptAt = at;
   if (key === 'form') o.form = { payout: { method: 'Bank transfer', account: (c.country === 'Nigeria' ? 'Zenith Bank' : c.country === 'Zambia' ? 'Zanaco' : 'Equity Bank') + ' · ' + (2041883000 + (o.id.charCodeAt(13) * 7)) }, slot: { date: A.day(at + 3 * D), time: '10:00', location: A.SITES[o.cust] || c.country } };
-  if (key === 'schedule') o.insp = { agency: p.agency || 'SGS Nigeria', inspector: p.inspector || 'Tunde Afolabi · SGS Nigeria', date: p.date || o.form.slot.date, time: p.time || o.form.slot.time, location: o.form.slot.location };
-  if (key === 'inspect') { o.insp.res = { weight: p.weight != null ? +p.weight : o.sell.qty, sample: p.sample || 'SMP-' + t, seals: p.seals || 'MB-SEAL-' + t + '-01 to 04', photos: +(p.photos || 18), result: p.result || 'Quantity and condition verified', notes: p.notes || '', by: p.by || o.insp.inspector, at }; doc('Third-party inspection report', 'SGS-INS-' + t); }
-  if (key === 'sgs') { o.sgs = { agency: (o.insp && o.insp.agency) || 'SGS Nigeria', no: p.no || 'SGS-NG-26-' + t, grade: p.grade || o.sell.grade.replace('~', ''), net: p.net != null ? +p.net : o.insp.res.weight, result: p.result || 'Compliant', file: p.file || 'SGS-' + t + '.pdf', at }; doc('Test certificate', o.sgs.no); }
+  if (key === 'schedule') o.insp = { agency: p.agency || '', inspector: p.inspector || '', date: p.date || o.form.slot.date, time: p.time || o.form.slot.time, location: o.form.slot.location };
+  if (key === 'inspect') { const co = ((p.agency || (o.insp && o.insp.agency) || 'Agency').split('·')[0] || 'Agency').trim(); const code = co.replace(/[^A-Za-z]/g, '').slice(0, 8).toUpperCase() || 'AGENCY'; if (p.inspector) o.insp.inspector = p.inspector; o.insp.res = { weight: p.weight != null ? +p.weight : o.sell.qty, sample: p.sample || 'SMP-' + t, seals: p.seals || 'MB-SEAL-' + t + '-01 to 04', photos: +(p.photos || 18), result: p.result || '', notes: p.notes || '', by: p.by || o.insp.inspector, at }; doc('Third-party inspection report', code + '-INS-' + t); }
+  if (key === 'sgs') { const co = (((o.insp && o.insp.agency) || p.agency || '').split('·')[0] || '').trim(); o.sgs = { agency: co, no: p.no || ('CERT-' + t), grade: p.grade || o.sell.grade.replace('~', ''), net: p.net != null ? +p.net : o.insp.res.weight, result: p.result || 'Compliant', file: p.file || ('certificate-' + t + '.pdf'), at }; doc('Test certificate', o.sgs.no); }
   if (key === 'approved' && !o.payout) {
     const pay = o.form && o.form.payout ? o.form.payout : {};
     o.payout = { amount: o.total, method: pay.method || 'Bank transfer', account: pay.account || '', approvals: [] };
@@ -132,7 +132,7 @@ function build(now?: any) {
   });
   const addHist = (o?: any, S?: any, n?: any, who?: any) => { for (let i = 0; i < n; i++) { const s = S[i]; const at = o.at + (o.sAt - o.at) * (n <= 1 ? 0 : i / (n - 1)); o.hist.push({ at, who: who(s), role: s.owner === 'cust' ? 'Customer' : (A.ROLES.find((r?: any) => r[0] === s.role) || [])[1] || '', text: s.label, note: '' }); } };
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept as in the design source
-  const whoFor = (c?: any, _o?: any) => (s?: any) => s.owner === 'cust' ? c.name : s.owner === 'lp' ? 'Sahel Secure Freight · recorded by Kelechi Nwosu' : s.owner === 'sgs' ? 'SGS Nigeria · recorded by Emeka Balogun' : (A.ROLES.find((r?: any) => r[0] === s.role) || [])[2];
+  const whoFor = (c?: any, _o?: any) => (s?: any) => s.owner === 'cust' ? c.name : s.owner === 'lp' ? 'Sahel Secure Freight · recorded by Kelechi Nwosu' : s.owner === 'sgs' ? 'Inspection agency · recorded by Emeka Balogun' : (A.ROLES.find((r?: any) => r[0] === s.role) || [])[2];
   A.BUYS.forEach((r?: any) => {
     const x = r[6] || {};
     const o: any = { id: r[0], kind: 'buy', src: x.src || 'direct', cust: r[1], items: r[2].map((i?: any) => ({ lot: i[0], qty: i[1], entered: i[2] })), stage: r[3], at: now - r[4] * H, sAt: now - r[5] * H, hold: null, rejected: x.rejected || '', quotes: [], hist: [], refunded: 0, total: 0, addr: '' };

@@ -124,7 +124,7 @@ V.editInsp = (c?: any, o?: any) => {
   V.form(c, 'ei-' + o.id, { title: 'Edit third-party inspection', sub: o.id + ' · ' + (g ? 'report submitted' : r ? 'inspection done' : 'booked'), mode: 'Edit', perm: 'inspection', cta: 'Save inspection', fields,
     save: (x?: any) => {
       if (db.live && o.live && g && V.persistInspectionRevision) {
-        V.persistInspectionRevision(c, o, { no: x.no, grade: x.grade, net: x.net, result: x.sresult, findings: [x.result, x.notes].filter(Boolean).join(' · ') });
+        V.persistInspectionRevision(c, o, { no: x.no, grade: x.grade, net: x.net, result: x.sresult, remarks: x.remarks, weight: x.weight, seals: x.seals, onSite: x.result, notes: x.notes, inspector: x.inspector, agency: x.agency });
         return;
       }
       const b = [o.insp.agency, o.insp.date, r ? r.weight : '', g ? g.no + ' ' + g.grade : ''].join(' · ');

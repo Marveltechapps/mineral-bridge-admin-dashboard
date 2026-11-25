@@ -162,7 +162,7 @@ export const consoleTitles: Readonly<Record<string, readonly [string, string]>> 
   notifications: ['Notifications', 'Every message sent to customers, by channel'],
   catalogue: ['Catalogue', 'Lots listed for buyers'],
   inventory: ['Inventory & stock', 'What is on hand, reserved for orders and available to sell'],
-  inspections: ['Inspections', 'Mineral Bridge inspection and SGS testing for sell requests'],
+  inspections: ['Inspections', 'Mineral Bridge inspection and third-party testing for sell requests'],
   logistics: ['Logistics', 'Shipments and partners'],
   payments: ['Payments & payouts', 'Incoming payments and seller payouts'],
   refunds: ['Refunds', 'Requests, approvals and receipts'],

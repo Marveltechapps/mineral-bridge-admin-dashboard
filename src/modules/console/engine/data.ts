@@ -40,7 +40,7 @@ const SELL = [
   ['quote', 'Price quotation issued', 'mb', 'trading', 1], ['quoteOk', 'Quotation accepted', 'cust', null, 1], ['confirmed', 'Price and terms confirmed', 'mb', 'trading', 1],
   ['contract', 'E-contract signed by seller', 'cust', null, 2], ['contractMb', 'E-contract countersigned', 'mb', 'trading', 2],
   ['form', 'Seller confirmation form', 'cust', null, 3], ['formOk', 'Details accepted', 'mb', 'ops', 3],
-  ['schedule', 'Third-party inspection booked', 'mb', 'inspection', 4], ['inspect', 'Inspection carried out by SGS', 'sgs', 'inspection', 4],
+  ['schedule', 'Third-party inspection booked', 'mb', 'inspection', 4], ['inspect', 'Inspection carried out', 'sgs', 'inspection', 4],
   ['sgs', 'Inspection report and test certificate uploaded', 'sgs', 'inspection', 4], ['reportOk', 'Reports accepted', 'cust', null, 4], ['approved', 'Final approval', 'mb', 'ops', 4],
   ['payout', 'Payment released', 'mb', 'finance', 5],
   ['picked', 'Collected', 'lp', 'logistics', 6], ['transit', 'In transit to vault', 'lp', 'logistics', 6],
@@ -55,7 +55,7 @@ const HOLDS = {
   changes: { label: 'Changes requested', owner: 'cust', role: null },
   clarify: { label: 'Clarification requested', owner: 'mb', role: 'inspection' }
 };
-const OWNER = { cust: 'Customer', mb: 'Mineral Bridge', lp: 'Logistics partner', sgs: 'SGS (inspector)' };
+const OWNER = { cust: 'Customer', mb: 'Mineral Bridge', lp: 'Logistics partner', sgs: 'Inspection agency' };
 
 const LOTS = [
   ['G-1041', 'gold', 'Gold Doré Bar', 'Doré bar', 12.5, 'kg', 1, 'Au 92.1%', 'SGS Lagos', 'SGS-NG-26-4471', 'Ilesha, Osun · Nigeria', 61400, 'listed', 4],

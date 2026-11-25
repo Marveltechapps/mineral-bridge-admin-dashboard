@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Sends operator actions on live records to /v2/admin, then reloads from the database.
 import { adminApi, adminRequest, AdminApiError } from '../../../lib/adminApi';
-import { discrepancySummary, getConsoleDb, inspectionReportNote, sellPriceVariation } from '../../../services/console/consoleService';
+import { approvalBlockers, discrepancyRecord, discrepancySummary, getConsoleDb, inspectionReportNote, sellPriceVariation } from '../../../services/console/consoleService';
 import { MBA, MBV } from './registry';
 
 const V = MBV;
@@ -78,7 +78,16 @@ export function stepPayload(stepKey: string, order: any, form: Record<string, un
   }
   if (stepKey === 'contractMb') return { signatory: form.signatory ? String(form.signatory) : undefined };
   if (stepKey === 'assigned') return { partnerId: String(form.partner || '') };
-  if (stepKey === 'schedule') return { date: form.date, time: form.time, location: form.loc || '' };
+  if (stepKey === 'ship') return { partnerId: String(form.partner || ''), location: String(form.loc || '').trim() };
+  if (stepKey === 'picked' || stepKey === 'transit' || stepKey === 'delivered') return { location: String(form.loc || '').trim() };
+  if (stepKey === 'schedule') return {
+    type: 'third_party',
+    agencyPartnerId: form.agency ? String(form.agency) : undefined,
+    inspectorPartnerId: form.inspector ? String(form.inspector) : undefined,
+    date: form.date,
+    time: form.time,
+    location: form.loc || form.location || '',
+  };
   if (stepKey === 'inspect') {
     const unit = order.sell?.unit || 'kg';
     const weight = Number(form.weight);
@@ -86,7 +95,9 @@ export function stepPayload(stepKey: string, order: any, form: Record<string, un
       weight: Number.isFinite(weight) ? { measure: 'mass', unit, base: weight } : undefined,
       seals: form.seals ? String(form.seals) : undefined,
       notes: form.notes ? String(form.notes) : undefined,
-      result: form.result ? String(form.result) : 'Quantity and condition verified',
+      result: form.result ? String(form.result) : undefined,
+      agencyPartnerId: form.agency ? String(form.agency) : undefined,
+      inspectorPartnerId: form.inspector ? String(form.inspector) : undefined,
     };
   }
   if (stepKey === 'payout') return { reference: form.ref ? String(form.ref) : undefined };
@@ -128,17 +139,6 @@ async function notifySeller(c: any, order: any, message: string, topic: string) 
   }
 }
 
-/** Writes the revised certificate onto the order timeline without moving the workflow step. */
-async function rememberRevisedReport(order: any, note: string, mismatch: string | null) {
-  const hold = `/orders/${encodeURIComponent(order.id)}/hold`;
-  const held = order.hold?.t;
-  if (held === 'refund' || held === 'declined' || held === 'changes') return false;
-  await adminApi.post(hold, { type: 'clarify', reason: 'Saving a revised inspection report' });
-  await adminApi.post(hold, { clear: true, reason: note });
-  if (mismatch) await adminApi.post(hold, { type: 'discrepancy', reason: mismatch });
-  return true;
-}
-
 const advance = V.advance;
 V.advance = (c?: any, o?: any, sim?: any) => {
   if (!o?.live || !c?.state?.db?.live) return advance(c, o, sim);
@@ -158,15 +158,37 @@ V.advance = (c?: any, o?: any, sim?: any) => {
       : 'Final approval is not the current step (' + (stepKey || 'unknown') + ').');
     return;
   }
-  const vr = sellPriceVariation(o);
-  if (vr?.material && (stepKey === 'approved' || stepKey === 'payout' || step?.key === 'approved' || step?.key === 'payout')) {
-    c.toast('Certified quantity or grade does not match the declaration. Final approval and payment stay blocked.');
-    if (!o.hold) V.markDiscrepancy(c, o);
+  const blocks = approvalBlockers(o, sellPriceVariation(o));
+  if (blocks.length && (stepKey === 'approved' || stepKey === 'payout' || step?.key === 'approved' || step?.key === 'payout')) {
+    c.toast(blocks[0]);
     return;
   }
   const before = o.stage;
   const version = o.version ?? 0;
   const form = { ...(c.form || {}) };
+  if ((stepKey === 'assigned' || stepKey === 'ship') && !String(form.partner || '').trim()) {
+    c.toast('Select a logistics company');
+    return;
+  }
+  if (stepKey === 'ship' && !String(form.loc || '').trim()) {
+    c.toast('Enter the pickup location');
+    return;
+  }
+  if (stepKey === 'schedule' && !String(form.agency || '').trim()) {
+    c.toast('Select an inspection company');
+    return;
+  }
+  if (stepKey === 'inspect' && !String(form.result || '').trim()) {
+    c.toast('Record the on-site result');
+    return;
+  }
+  if (stepKey === 'inspect' && !String(form.agency || '').trim()) {
+    const booked = String(o.insp?.agency || '');
+    if (!booked || booked === 'Inspection' || booked === '—') {
+      c.toast('Select an inspection company');
+      return;
+    }
+  }
   try {
     advance(c, o, sim);
   } catch (err) {
@@ -189,22 +211,79 @@ V.advance = (c?: any, o?: any, sim?: any) => {
     .catch((err) => fail(c, err));
 };
 
-const markLocal = V.markDiscrepancy;
-V.markDiscrepancy = (c: any, o: any) => {
-  if (!o?.live || !c?.state?.db?.live) return markLocal?.(c, o);
+V.persistLogisticsAssignment = (c: any, o: any) => {
+  const current = (c.state.db.orders || []).find((row: any) => row.id === o.id) || o;
+  const partner = String(c.form?.partner || '').trim();
+  if (!partner) return c.toast('Select a logistics company');
+  const stepKey = current.serverStep === 'assigned' || current.serverStep === 'ship' ? current.serverStep : 'ship';
+  void adminApi.post(`/orders/${encodeURIComponent(current.id)}/steps/${encodeURIComponent(stepKey)}`, {
+    version: current.version ?? 0,
+    data: { partnerId: partner, assignOnly: true },
+  }).then(() => {
+    c.commit('Logistics company saved');
+    return reload(c);
+  }).catch((err) => fail(c, err));
+};
+
+V.persistDiscrepancy = (c: any, o: any, reason: string) => {
   const current = (c.state.db.orders || []).find((row: any) => row.id === o.id) || o;
   if (closedOrder(current)) return c.toast('This request is closed. A cancelled or completed order is not reopened from here.');
-  const vr = sellPriceVariation(current);
-  if (!vr?.material) return c.toast('Certified quantity and grade match the declaration');
   if (current.hold?.t === 'discrepancy') return c.toast('This request is already held for a quantity discrepancy. Payment stays blocked.');
-  const reason = discrepancySummary(current, vr).slice(0, 1000);
-  void adminApi.post(`/orders/${encodeURIComponent(current.id)}/hold`, { type: 'discrepancy', reason })
-    .then(() => notifySeller(c, current, reason, 'Quantity discrepancy'))
+  const note = String(reason || '').slice(0, 1000);
+  void adminApi.post(`/orders/${encodeURIComponent(current.id)}/hold`, { type: 'discrepancy', reason: note })
+    .then(() => notifySeller(c, current, note, 'Quantity discrepancy'))
     .then(() => {
-      c.commit('Quantity discrepancy recorded — payment stays blocked');
+      c.setState({ drawer: null });
+      c.commit('Quantity discrepancy submitted — payment stays blocked');
       return reload(c);
     })
     .catch((err) => fail(c, err));
+};
+
+V.persistDiscrepancyReject = (c: any, o: any, why: string) => {
+  const current = (c.state.db.orders || []).find((row: any) => row.id === o.id) || o;
+  const vr = sellPriceVariation(current);
+  const note = discrepancyRecord({
+    declared: vr?.declared ?? (Number(current.sell?.qty) || 0),
+    actual: Number(vr?.cert ?? current.insp?.res?.weight) || 0,
+    unit: current.sell?.unit || '',
+    reason: String(why || '').trim(),
+    status: 'rejected',
+  }).slice(0, 1000);
+  void adminApi.post(`/orders/${encodeURIComponent(current.id)}/hold`, { type: 'discrepancy', reason: note })
+    .then(() => {
+      c.commit('Discrepancy rejected — final approval stays blocked');
+      return reload(c);
+    })
+    .catch((err) => fail(c, err));
+};
+
+V.persistCorrectionRequest = (c: any, o: any, note: string) => {
+  void adminApi.post(`/orders/${encodeURIComponent(o.id)}/inspection/request-correction`, { note: String(note || '').slice(0, 2000) })
+    .then(() => notifySeller(c, o, String(note), 'Corrected inspection report'))
+    .then(() => {
+      c.setState({ drawer: null });
+      c.commit('Correction requested. The saved report result is unchanged');
+      return reload(c);
+    })
+    .catch((err) => fail(c, err));
+};
+
+V.persistReinspection = (c: any, o: any, input: { weight?: number; seals?: string; result?: string; notes?: string; inspector?: string }) => {
+  const unit = o.sell?.unit || 'kg';
+  const weight = Number(input.weight);
+  void adminApi.post(`/orders/${encodeURIComponent(o.id)}/inspection/reinspect`, {
+    weight: Number.isFinite(weight) ? { measure: 'mass', unit, base: weight } : undefined,
+    seals: input.seals ? String(input.seals) : undefined,
+    result: String(input.result || ''),
+    notes: input.notes ? String(input.notes) : undefined,
+    inspector: input.inspector ? String(input.inspector) : undefined,
+    agency: o.insp?.agency || undefined,
+  }).then(() => {
+    c.setState({ drawer: null });
+    c.commit('Re-inspection recorded. The certificate result is unchanged');
+    return reload(c);
+  }).catch((err) => fail(c, err));
 };
 
 V.persistReject = (c: any, o: any, reason: string) => {
@@ -383,8 +462,9 @@ V.persistInspectionReport = (c: any, order: any, input: {
   const no = String(input.no || '').trim();
   const grade = String(input.grade || '').trim();
   const net = Number(input.net);
-  const result = String(input.result || 'Compliant').trim() || 'Compliant';
+  const result = String(input.result || '').trim();
   if (!no || !grade) return c.toast('Report number and certified grade are required');
+  if (!result) return c.toast('Record the report result');
   if (!Number.isFinite(net) || net < 0) return c.toast('Enter the certified net quantity');
   const file = input.file;
   if (!file) return c.toast('Choose the report file first');
@@ -405,25 +485,27 @@ V.persistInspectionReport = (c: any, order: any, input: {
     const note = inspectionReportNote({ no, grade, net, result });
     const draft = { ...current, sgs: { ...(current.sgs || {}), no, grade, net, result } };
     const vr = sellPriceVariation(draft);
-    const mismatch = vr?.material ? discrepancySummary(draft, vr).slice(0, 1000) : null;
+    const qtyHold = vr && (!vr.qtyMatch || !vr.gradeMatch) ? discrepancySummary(draft, vr).slice(0, 1000) : null;
+    const unit = current.sell?.unit || 'kg';
+    const reportBody = {
+      certificateNo: no,
+      grade,
+      net: { measure: 'mass', unit, base: net },
+      result,
+      fileId: report?.fileId,
+      remarks: input.remarks ? String(input.remarks).trim() : undefined,
+    };
     if (onSgs) {
-      const unit = current.sell?.unit || 'kg';
       await adminApi.post(`/orders/${encodeURIComponent(current.id)}/steps/sgs`, {
         version: current.version ?? 0,
-        data: {
-          certificateNo: no,
-          grade,
-          net: { measure: 'mass', unit, base: net },
-          result,
-          fileId: report?.fileId,
-          remarks: input.remarks ? String(input.remarks).trim() : undefined,
-        },
+        data: reportBody,
         note,
       });
-      if (mismatch) await adminApi.post(`/orders/${encodeURIComponent(current.id)}/hold`, { type: 'discrepancy', reason: mismatch });
     } else {
-      const saved = await rememberRevisedReport(current, note, mismatch);
-      if (!saved) throw new Error('This request is on another hold. Clear that hold before revising the certificate.');
+      await adminApi.post(`/orders/${encodeURIComponent(current.id)}/inspection-report`, reportBody);
+    }
+    if (qtyHold && current.hold?.t !== 'discrepancy') {
+      await adminApi.post(`/orders/${encodeURIComponent(current.id)}/hold`, { type: 'discrepancy', reason: qtyHold });
     }
     const findings = input.remarks ? ` Findings: ${String(input.remarks).trim()}.` : '';
     await notifySeller(
@@ -434,35 +516,56 @@ V.persistInspectionReport = (c: any, order: any, input: {
     );
     if (c._rep) delete c._rep[current.id];
     c.setState({ drawer: null });
-    c.commit(mismatch ? 'Report saved — quantity discrepancy, payment blocked' : onSgs ? 'Report ' + no + ' uploaded' : 'Revised report saved');
+    c.commit(qtyHold ? 'Report saved — quantity discrepancy, payment blocked' : onSgs ? 'Report ' + no + ' uploaded' : 'Revised report saved. Earlier certificate kept in the report history');
     await reload(c);
   })().catch((err) => fail(c, err)).finally(() => { c._repBusy = false; });
 };
 
 /** Corrects certificate figures on a report that is already uploaded. The workflow step does not move. */
-V.persistInspectionRevision = (c: any, order: any, input: { no: string; grade: string; net: number; result: string; findings?: string }) => {
+V.persistInspectionRevision = (c: any, order: any, input: {
+  no: string; grade: string; net: number; result: string; remarks?: string;
+  weight?: number; seals?: string; onSite?: string; notes?: string; inspector?: string; agency?: string;
+}) => {
   if (!c?.state?.db?.live || !order?.live) return;
   const current = (c.state.db.orders || []).find((row: any) => row.id === order.id) || order;
   if (closedOrder(current)) return c.toast('This request is closed. A cancelled or completed order is not reopened by editing the report.');
   const no = String(input.no || '').trim();
   const grade = String(input.grade || '').trim();
   const net = Number(input.net);
-  const result = String(input.result || 'Compliant').trim() || 'Compliant';
+  const result = String(input.result || '').trim();
   if (!no || !grade) return c.toast('Report number and certified grade are required');
+  if (!result) return c.toast('Record the report result');
   if (!Number.isFinite(net) || net < 0) return c.toast('Enter the certified net quantity');
   if (String(current.serverStep || '') === 'sgs') return c.toast('Upload the report file to record the certificate. The request is still on that step.');
-  const note = inspectionReportNote({ no, grade, net, result });
-  const draft = { ...current, sgs: { ...(current.sgs || {}), no, grade, net, result } };
-  const vr = sellPriceVariation(draft);
-  const mismatch = vr?.material ? discrepancySummary(draft, vr).slice(0, 1000) : null;
+  const unit = current.sell?.unit || 'kg';
   c.toast('Saving revised report…');
   void (async () => {
-    const saved = await rememberRevisedReport(current, note, mismatch);
-    if (!saved) throw new Error('This request is on another hold. Clear that hold before revising the certificate.');
-    const findings = input.findings ? ` Findings: ${String(input.findings).trim()}.` : '';
-    await notifySeller(c, current, `Inspection report revised for ${current.id}. ${note}.${findings} Quoted amount stays $${current.total ?? ''}. Review resumes at inspection verification.`, 'Inspection report revised');
+    if (input.onSite) {
+      await adminApi.post(`/orders/${encodeURIComponent(current.id)}/inspection/reinspect`, {
+        weight: Number.isFinite(Number(input.weight)) ? { measure: 'mass', unit, base: Number(input.weight) } : undefined,
+        seals: input.seals,
+        result: input.onSite,
+        notes: input.notes,
+        inspector: input.inspector,
+        agency: input.agency,
+      });
+    }
+    await adminApi.post(`/orders/${encodeURIComponent(current.id)}/inspection-report`, {
+      certificateNo: no,
+      grade,
+      net: { measure: 'mass', unit, base: net },
+      result,
+      remarks: input.remarks ? String(input.remarks).trim() : undefined,
+    });
+    const draft = { ...current, sgs: { ...(current.sgs || {}), no, grade, net, result } };
+    const vr = sellPriceVariation(draft);
+    const qtyHold = vr && (!vr.qtyMatch || !vr.gradeMatch) ? discrepancySummary(draft, vr).slice(0, 1000) : null;
+    if (qtyHold && current.hold?.t !== 'discrepancy') {
+      await adminApi.post(`/orders/${encodeURIComponent(current.id)}/hold`, { type: 'discrepancy', reason: qtyHold });
+    }
+    await notifySeller(c, current, `Inspection report revised for ${current.id}. ${inspectionReportNote({ no, grade, net, result })}. The previous certificate is kept.`, 'Inspection report revised');
     c.setState({ drawer: null });
-    c.commit(mismatch ? 'Revised report saved — quantity discrepancy, payment blocked' : 'Revised report saved');
+    c.commit(qtyHold ? 'Revised report saved — quantity discrepancy, payment blocked' : 'Revised report saved. Earlier certificate kept in the report history');
     await reload(c);
   })().catch((err) => fail(c, err));
 };

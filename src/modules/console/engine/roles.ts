@@ -9,7 +9,7 @@ const PERM_LIST: any[] = [
   ['auction', 'Trading', 'Auctions', 'Schedule, open early, pause, extend, cancel, close and award auctions; relist unsold lots', 'Auctions'],
   ['kyc', 'Compliance', 'KYC decisions', 'Approve, reject or request new KYC documents', 'Customers & KYC'],
   ['suspend', 'Compliance', 'Account suspension', 'Suspend and reinstate customer accounts', 'Customers & KYC'],
-  ['inspection', 'Inspection', 'Inspections & testing', 'Schedule inspections, record weights and seals, upload SGS reports, answer report queries, manage testing agencies', 'Sell requests, Inspections, Logistics'],
+  ['inspection', 'Inspection', 'Inspections & testing', 'Schedule inspections, record weights and seals, upload agency reports, answer report queries, manage testing agencies', 'Sell requests, Inspections, Logistics'],
   ['finance', 'Finance', 'Payments, payouts & refunds', 'Confirm incoming payments, approve and release seller payouts, review, approve, decline and complete refunds', 'Payments & payouts, Refunds'],
   ['logistics', 'Logistics', 'Shipments', 'Assign logistics partners, record pickup, transit, delivery and vault receipt; pause or reactivate carriers', 'Buy orders, Sell requests, Logistics'],
   ['catalogue', 'Catalogue', 'Lots & categories', 'Create and edit lots, publish and archive them, manage categories and subcategories', 'Catalogue'],

@@ -76,6 +76,64 @@ export function sellPriceVariation(o: {
   };
 }
 
+export function isNonCompliantReport(result?: string) {
+  const text = String(result || '').trim();
+  if (!text || /with remarks/i.test(text)) return false;
+  return /non[\s_-]*compliant/i.test(text);
+}
+
+export function discrepancyState(note?: string): 'pending' | 'rejected' {
+  return /^\[qty:rejected\]/i.test(String(note || '')) ? 'rejected' : 'pending';
+}
+
+export function discrepancyResolved(o: { hist?: Array<{ text?: string; note?: string }> }) {
+  return (o.hist || []).some((row) => /^Discrepancy resolved\b/i.test(String(row?.note || row?.text || '')));
+}
+
+export function discrepancyRecord(input: {
+  declared: number;
+  actual: number;
+  unit: string;
+  reason: string;
+  notes?: string;
+  status?: 'pending' | 'rejected';
+}) {
+  const diff = Number(input.actual) - Number(input.declared);
+  const sign = diff > 0 ? '+' : '';
+  const notes = String(input.notes || '').trim();
+  return `[qty:${input.status || 'pending'}] Expected ${input.declared} ${input.unit}. Inspected ${input.actual} ${input.unit}. Difference ${sign}${diff} ${input.unit}. Reason: ${String(input.reason || '').trim()}.${notes ? ' Notes: ' + notes : ''}`;
+}
+
+export function approvalBlockers(o: {
+  kind?: string;
+  sell?: { grade?: string; unit?: string };
+  insp?: { agency?: string; res?: { weight?: number } };
+  sgs?: { agency?: string; no?: string; grade?: string; result?: string; remarks?: string };
+  hold?: { t?: string; note?: string } | null;
+  hist?: Array<{ text?: string; note?: string }>;
+}, vr: SellVariation | null): string[] {
+  if (o.kind && o.kind !== 'sell') return [];
+  const blocks: string[] = [];
+  const agency = String(o.insp?.agency || o.sgs?.agency || '').trim();
+  if (!agency || agency === '—' || agency === 'Inspection') blocks.push('An inspection agency has not been assigned.');
+  if (!(o.insp?.res && o.insp.res.weight != null)) blocks.push('The inspected quantity has not been recorded.');
+  if (!o.sgs?.no) blocks.push('The inspection report and certificate have not been uploaded.');
+  else if (!String(o.sgs.result || '').trim()) blocks.push('The inspection report has no result.');
+  if (o.sgs?.no && isNonCompliantReport(o.sgs.result)) {
+    const why = String(o.sgs.remarks || '').trim() || (o.sgs.grade ? `grade ${o.sgs.grade}` : 'no remarks were recorded');
+    blocks.push(`The inspection report ${o.sgs.no} is non-compliant (${why}). Final approval stays blocked until a corrected report is uploaded.`);
+  }
+  if (o.hold?.t === 'discrepancy') {
+    blocks.push(discrepancyState(o.hold.note) === 'rejected'
+      ? 'The quantity discrepancy was rejected. Final approval stays blocked.'
+      : 'A quantity discrepancy is pending. Final approval stays blocked until it is resolved.');
+  } else if (vr && !discrepancyResolved(o)) {
+    if (!vr.qtyMatch) blocks.push(`Quantity discrepancy is unresolved. Declared ${vr.declared} ${o.sell?.unit || ''}, inspected ${vr.cert}.`);
+    if (!vr.gradeMatch) blocks.push(`Certified grade ${o.sgs?.grade || '—'} does not match declared grade ${o.sell?.grade || '—'}.`);
+  }
+  return blocks;
+}
+
 export function discrepancySummary(o: { id?: string; sell?: { grade?: string; unit?: string }; sgs?: { grade?: string; result?: string }; insp?: { res?: { result?: string; notes?: string } }; total?: number }, vr: SellVariation) {
   const unit = o.sell?.unit || '';
   const declaredGrade = o.sell?.grade || '—';

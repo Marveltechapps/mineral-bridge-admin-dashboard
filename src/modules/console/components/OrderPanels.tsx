@@ -21,6 +21,12 @@ export function NextStepCard({ next }: { next: OrderDetailVM['next'] }) {
             <label key={i} className={styles.field}>
               <span className={styles.fieldLabel}>{f.label}</span>
               {f.isText && <input defaultValue={f.value} onChange={f.set} className={styles.input} />}
+              {f.isSelect && (
+                <select className={styles.input} value={f.value} onChange={f.set}>
+                  <option value="">Select a company</option>
+                  {(f.choices || []).map((o, oi) => <option key={oi} value={o.value || ''}>{o.label}</option>)}
+                </select>
+              )}
               {f.isChoice && (
                 <span className={styles.choices}>
                   {(f.choices || []).map((o, oi) => <button type="button" key={oi} onClick={o.go} style={sx(o.style)}>{o.label}</button>)}
