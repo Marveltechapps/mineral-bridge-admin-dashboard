@@ -116,15 +116,21 @@ V.editInsp = (c?: any, o?: any) => {
   const ag = db.partners.filter((p?: any) => p.type === 'inspection').map((p?: any) => p.name), ins = db.partners.filter((p?: any) => p.type === 'inspector').map((p?: any) => p.name);
   const withCur = (list?: any, v?: any) => v && list.indexOf(v) < 0 ? [v].concat(list) : list;
   const r = o.insp.res, g = o.sgs;
-  const fields = [F('agency', 'Inspection agency', o.insp.agency || ag[0], 'choice', withCur(ag, o.insp.agency), 1), F('inspector', 'Agency inspector', o.insp.inspector, 'choice', withCur(ins, o.insp.inspector), 1), F('date', 'Date', o.insp.date, 'text', null, 1), F('time', 'Time', o.insp.time, 'text', null, 1), F('location', 'Location', o.insp.location, 'area', null, 1)]
+  const inspectorOpts = withCur(ins, o.insp.inspector);
+  const inspectorDef = o.insp.inspector || inspectorOpts[0] || 'Not recorded';
+  const fields = [F('agency', 'Inspection agency', o.insp.agency || ag[0] || 'Inspection', 'choice', withCur(ag, o.insp.agency).length ? withCur(ag, o.insp.agency) : [o.insp.agency || 'Inspection'], 1), F('inspector', 'Agency inspector', inspectorDef, 'choice', inspectorOpts.length ? inspectorOpts : [inspectorDef], 1), F('date', 'Date', o.insp.date, 'text', null, 1), F('time', 'Time', o.insp.time, 'text', null, 1), F('location', 'Location', o.insp.location, 'area', null, 1)]
     .concat(r ? [F('weight', 'Weight recorded by the agency (' + o.sell.unit + ')', r.weight, 'num', null, 1), F('seals', 'Agency seal numbers', r.seals, 'text', null, 1), F('result', 'Agency result', r.result, 'text', null, 1), F('notes', 'Agency inspector notes', r.notes, 'area')] : [])
-    .concat(g ? [F('no', 'Agency report number', g.no, 'text', null, 1), F('grade', 'Certified grade', g.grade, 'text', null, 1), F('sresult', 'Report result', g.result, 'choice', ['Compliant', 'Compliant with remarks', 'Non-compliant'], 1)] : []);
+    .concat(g ? [F('no', 'Agency report number', g.no, 'text', null, 1), F('grade', 'Certified grade', g.grade, 'text', null, 1), F('net', 'Certified net quantity (' + o.sell.unit + ')', g.net, 'num', null, 1), F('sresult', 'Report result', g.result, 'choice', ['Compliant', 'Compliant with remarks', 'Non-compliant'], 1)] : []);
   V.form(c, 'ei-' + o.id, { title: 'Edit third-party inspection', sub: o.id + ' · ' + (g ? 'report submitted' : r ? 'inspection done' : 'booked'), mode: 'Edit', perm: 'inspection', cta: 'Save inspection', fields,
     save: (x?: any) => {
+      if (db.live && o.live && g && V.persistInspectionRevision) {
+        V.persistInspectionRevision(c, o, { no: x.no, grade: x.grade, net: x.net, result: x.sresult, findings: [x.result, x.notes].filter(Boolean).join(' · ') });
+        return;
+      }
       const b = [o.insp.agency, o.insp.date, r ? r.weight : '', g ? g.no + ' ' + g.grade : ''].join(' · ');
       Object.assign(o.insp, { agency: x.agency, inspector: x.inspector, date: x.date, time: x.time, location: x.location });
       if (r) Object.assign(r, { weight: x.weight, seals: x.seals, result: x.result, notes: x.notes || '' });
-      if (g) Object.assign(g, { no: x.no, grade: x.grade, result: x.sresult, agency: x.agency });
+      if (g) Object.assign(g, { no: x.no, grade: x.grade, net: x.net != null ? +x.net : g.net, result: x.sresult, agency: x.agency });
       V.log(c, 'Sell request', o.id, 'Inspection edited', b, [x.agency, x.date, r ? x.weight : '', g ? x.no + ' ' + x.grade : ''].join(' · '));
       V.tell(c, o.cust, 'Inspection details updated', o.id); c.setState({ drawer: null }); c.commit('Inspection updated');
     } });
@@ -137,12 +143,17 @@ V.uploadReport = (c?: any, o?: any) => {
   if (!o.insp.res && !g) { c.toast('Record the agency inspection first, then upload its report'); return c.openOrder(o.id); }
   c._rep = c._rep || {};
   const st = c._rep[o.id] = c._rep[o.id] || { file: null };
-  V.form(c, 'rep-' + o.id, { title: g ? 'Replace inspection report' : 'Upload inspection report', sub: o.id + ' · ' + (o.insp.agency || 'Inspection agency') + ' · ' + o.sell.name, mode: g ? 'Edit' : 'New', perm: 'inspection', cta: g ? 'Save new version' : 'Upload report',
+  const spec = { title: g ? 'Replace inspection report' : 'Upload inspection report', sub: o.id + ' · ' + (o.insp.agency || 'Inspection agency') + ' · ' + o.sell.name, mode: g ? 'Edit' : 'New', perm: 'inspection', cta: g ? 'Save new version' : 'Upload report',
     info: [kv('Report file', st.file ? st.file.name + ' · ' + Math.max(1, Math.round(st.file.size / 1024)) + ' KB' : g && g.file ? g.file + ' (current)' : 'None chosen yet'), kv('Inspected weight', A.qfmt(o.insp.res ? o.insp.res.weight : o.sell.qty, o.sell.unit))],
-    fields: [F('no', 'Report / certificate number', g ? g.no : '', 'text', null, 1), F('grade', 'Certified grade', g ? g.grade : o.sell.grade.replace('~', ''), 'text', null, 1), F('net', 'Certified net quantity (' + o.sell.unit + ')', g ? g.net : (o.insp.res ? o.insp.res.weight : o.sell.qty), 'num', null, 1), F('result', 'Result', g ? g.result : 'Compliant', 'choice', ['Compliant', 'Compliant with remarks', 'Non-compliant'], 1), F('remarks', 'Agency remarks', g ? g.remarks || '' : '', 'area')],
+    fields: [F('no', 'Report / certificate number', g ? g.no : '', 'text', null, 1), F('grade', 'Certified grade', g ? g.grade : String(o.sell.grade || '').replace('~', ''), 'text', null, 1), F('net', 'Certified net quantity (' + o.sell.unit + ')', g ? g.net : (o.insp.res && o.insp.res.weight ? o.insp.res.weight : o.sell.qty), 'num', null, 1), F('result', 'Result', g ? g.result : 'Compliant', 'choice', ['Compliant', 'Compliant with remarks', 'Non-compliant'], 1), F('remarks', 'Agency remarks', g ? g.remarks || '' : '', 'area')],
     sections: [{ title: 'Report file', items: [{ t: st.file ? st.file.name : 'Choose the PDF or scan sent by the agency', s: st.file ? 'Ready to upload' : 'PDF, JPG or PNG', btns: ([{ label: st.file ? 'Change file' : 'Choose file', go: () => V.pick('.pdf,.jpg,.jpeg,.png', false, (fs?: any) => { if (fs[0]) { st.file = fs[0]; V.uploadReport(c, o); c.commit(fs[0].name + ' selected'); } }) }] as any[]).concat(st.file ? [{ label: 'Remove', danger: true, go: () => { st.file = null; V.uploadReport(c, o); c.commit(); } }] : []) }] }],
     save: (x?: any) => {
       if (!st.file && !(g && g.file)) return 'Choose the report file first';
+      if (db.live && o.live && V.persistInspectionReport) {
+        if (!st.file) return 'Choose the report file first';
+        V.persistInspectionReport(c, o, { file: st.file, no: x.no, grade: x.grade, net: x.net, result: x.result, remarks: x.remarks || '' });
+        return;
+      }
       const fileName = st.file ? st.file.name : g.file, now0 = now(), m = V.me(c);
       if (!g && key === 'sgs') {
         A.stageData(db, o, 'sgs', now0, { no: x.no, grade: x.grade, net: x.net, result: x.result, file: fileName, by: m.name }, false);
@@ -163,10 +174,24 @@ V.uploadReport = (c?: any, o?: any) => {
       o.sgs.remarks = x.remarks || ''; if (st.file) o.sgs.fileObj = st.file;
       V.log(c, 'Sell request', o.id, g ? 'Inspection report replaced' : 'Inspection report uploaded', g ? g.no : '', x.no, fileName);
       delete c._rep[o.id]; c.setState({ drawer: null }); c.commit('Report ' + x.no + ' uploaded');
-    } });
+    } };
+  const formId = 'rep-' + o.id;
+  c._forms = c._forms || {};
+  c._forms[formId] = spec;
+  const open = c.state.drawer;
+  // Re-opening the drawer clears the fields the operator already typed. Refresh in place once it is open.
+  if (open && open.type === 'form' && open.id === formId) c.commit();
+  else V.form(c, formId, spec);
 };
 const repBlob = (o?: any) => o.sgs.fileObj || V.pdf('Inspection report · ' + o.sgs.no, ['Agency ' + (o.sgs.agency || ''), 'Request ' + o.id, 'Material ' + o.sell.name, 'Certified grade ' + o.sgs.grade, 'Net ' + A.qfmt(o.sgs.net, o.sell.unit), 'Result ' + o.sgs.result, o.sgs.remarks ? 'Remarks ' + o.sgs.remarks : '', 'Demo file generated by the admin console']);
-V.downloadReport = (c?: any, o?: any) => { V.download(o.sgs.file || (o.sgs.no + '.pdf'), repBlob(o)); V.log(c, 'Sell request', o.id, 'Inspection report downloaded', '', o.sgs.no); c.commit('Downloaded ' + o.sgs.no); };
+V.downloadReport = (c?: any, o?: any) => {
+  if (o.sgs && o.sgs.liveDoc && o.sgs.docNo && V.downloadDocument) {
+    V.downloadDocument(c, { live: true, no: o.sgs.docNo });
+    V.log(c, 'Sell request', o.id, 'Inspection report downloaded', '', o.sgs.no);
+    return;
+  }
+  V.download(o.sgs.file || (o.sgs.no + '.pdf'), repBlob(o)); V.log(c, 'Sell request', o.id, 'Inspection report downloaded', '', o.sgs.no); c.commit('Downloaded ' + o.sgs.no);
+};
 
 // ---------- seller uploads ----------
 const sfiles = (o?: any) => {

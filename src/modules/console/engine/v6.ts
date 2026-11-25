@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Ported from the design file mb-admin-v6.js. Behaviour and styles are kept as designed.
+import { sellPriceVariation } from '../../../services/console/consoleService';
 import { MBA, MBV } from './registry';
 
 const V = MBV, D = V.D, A = MBA;
@@ -48,15 +49,16 @@ const choiceField = (c?: any, k?: any, label?: any, opts?: any, def?: any) => {
 };
 
 // ---------- price variation ----------
-V.variation = (o?: any) => {
-  if (o.kind !== 'sell' || !o.quotes.length) return null;
-  const q = o.quotes.filter((x?: any) => x.status !== 'declined').slice(-1)[0] || o.quotes[o.quotes.length - 1];
-  const unit = q.lines[0] && q.lines[0].unitPrice ? q.lines[0].unitPrice : q.prod / (o.sell.qty || 1);
-  const cert = o.sgs ? o.sgs.net : o.insp && o.insp.res ? o.insp.res.weight : null;
-  if (cert == null) return { unit, declared: o.sell.qty, cert: null };
-  const ded = q.deduct || 0, fair = Math.round(unit * cert - ded), base = (o.variations && o.variations.length ? o.variations[0].from : o.total) || q.total;
-  const qtyPct = (cert - o.sell.qty) / o.sell.qty * 100;
-  return { unit, declared: o.sell.qty, cert, fair, quoted: base, current: o.total, diff: fair - base, qtyPct, pct: base ? (fair - base) / base * 100 : 0, applied: o.total !== base };
+V.variation = (o?: any) => sellPriceVariation(o);
+V.markDiscrepancy = (c?: any, o?: any) => {
+  const vr = V.variation(o);
+  if (!vr || !vr.material) return c.toast('Certified quantity and grade match the declaration');
+  const note = 'Declared ' + A.qfmt(vr.declared, o.sell.unit) + ' · certified ' + A.qfmt(vr.cert, o.sell.unit) + (vr.gradeMatch ? '' : ' · grade ' + o.sell.grade + ' → ' + (o.sgs ? o.sgs.grade : ''));
+  o.hold = { t: 'discrepancy', note, at: now() };
+  o.sAt = now();
+  o.hist.push({ at: now(), who: V.me(c).name, role: V.me(c).label, text: 'Quantity discrepancy', note });
+  V.tell(c, o.cust, 'Quantity discrepancy on ' + o.id, o.id);
+  c.commit('Quantity discrepancy recorded — payment stays blocked');
 };
 const locked = (o?: any) => !!(o.payout && o.payout.ref) || A.nextInfo(o).done;
 V.adjustPrice = (c?: any, o?: any) => {
@@ -190,10 +192,23 @@ V.orderDetail = (c?: any, o?: any) => {
     if (o.vaultLot) rows.push({ k: 'Stock lot', v: o.vaultLot });
     out.cards.unshift({ title: 'Transaction summary', rows, list: [], hasList: false });
     if (vr && vr.cert != null) {
+      const priceTitle = vr.material && !vr.qtyMatch ? ' · ' + pctTxt(vr.pct) : vr.material && !vr.gradeMatch ? ' · grade differs' : vr.failed ? ' · non-compliant' : ' · none';
       const vrows = [{ k: 'Declared quantity', v: A.qfmt(vr.declared, o.sell.unit) }, { k: 'Certified quantity', v: A.qfmt(vr.cert, o.sell.unit) + ' (' + pctTxt(vr.qtyPct) + ')' }, { k: 'Grade declared → certified', v: o.sell.grade + ' → ' + (o.sgs ? o.sgs.grade : 'awaiting report') }, { k: 'Originally quoted', v: money(vr.quoted) }, { k: 'Value at certified quantity', v: money(vr.fair) + ' (' + (vr.diff >= 0 ? '+' : '−') + money(Math.abs(vr.diff)) + ', ' + pctTxt(vr.pct) + ')' }, { k: 'Payable now', v: money(o.total) + (vr.applied ? ' · adjusted' : ' · unchanged') }];
-      out.cards.splice(1, 0, { title: 'Price variation' + (Math.abs(vr.pct) >= 0.01 ? ' · ' + pctTxt(vr.pct) : ' · none'), rows: vrows, hasList: !!(o.variations && o.variations.length), list: (o.variations || []).slice().reverse().map((x?: any) => ({ t: money(x.from) + ' → ' + money(x.to) + ' · ' + x.kind, s: x.note + ' · ' + x.by, r: A.fmt(x.at), go: () => {}, style: 'display:flex; align-items:center; gap:12px; padding:9px 0; border-top:1px solid var(--line2);' })) });
-      if (!locked(o)) out.manage.unshift(V.act(c, 'Adjust price for variation', () => V.adjustPrice(c, o), Math.abs(vr.pct) >= 0.5 && !vr.applied ? 1 : 2, 'trading'));
-      if (out.next && !locked(o) && Math.abs(vr.pct) >= 0.5 && !vr.applied && ['approved', 'reportOk'].indexOf(k) >= 0) { out.next.note = (out.next.note ? out.next.note + ' ' : '') + 'Certified quantity differs from the quote by ' + pctTxt(vr.pct) + ' — review the price before approval.'; out.next.hasNote = true; }
+      out.cards.splice(1, 0, { title: 'Price variation' + priceTitle, rows: vrows, hasList: !!(o.variations && o.variations.length), list: (o.variations || []).slice().reverse().map((x?: any) => ({ t: money(x.from) + ' → ' + money(x.to) + ' · ' + x.kind, s: x.note + ' · ' + x.by, r: A.fmt(x.at), go: () => {}, style: 'display:flex; align-items:center; gap:12px; padding:9px 0; border-top:1px solid var(--line2);' })) });
+      if (!locked(o)) out.manage.unshift(V.act(c, 'Adjust price for variation', () => V.adjustPrice(c, o), vr.material && !vr.qtyMatch && !vr.applied ? 1 : 2, 'trading'));
+      if (out.next && !locked(o) && !o.hold && vr.material && ['approved', 'reportOk', 'payout'].indexOf(k) >= 0) {
+        const parts = [];
+        if (!vr.qtyMatch) parts.push('Certified quantity ' + A.qfmt(vr.cert, o.sell.unit) + ' differs from declared ' + A.qfmt(vr.declared, o.sell.unit) + ' (' + pctTxt(vr.qtyPct) + ')');
+        if (!vr.gradeMatch) parts.push('Certified grade ' + (o.sgs ? o.sgs.grade : '') + ' differs from declared ' + o.sell.grade);
+        if (vr.failed) parts.push('The inspection result is non-compliant');
+        out.next.note = (out.next.note ? out.next.note + ' ' : '') + parts.join('. ') + '. Final approval and payment stay blocked until the report is corrected or the discrepancy is resolved.';
+        out.next.hasNote = true;
+        if (k === 'approved' || k === 'payout') out.next.acts = [V.act(c, 'Record quantity discrepancy', () => V.markDiscrepancy(c, o), 3, 'ops')];
+        else if (o.live) { out.next.acts = (out.next.acts || []).filter((a?: any) => !/Simulate/.test(a.label)); out.next.acts.unshift(V.act(c, 'Record quantity discrepancy', () => V.markDiscrepancy(c, o), 3, 'ops')); }
+      } else if (out.next && !locked(o) && o.live && k === 'reportOk') {
+        out.next.note = (out.next.note ? out.next.note + ' ' : '') + 'The seller accepts this report in the app. Give final approval is the next Mineral Bridge step, and it is available only when the certified quantity and grade match.';
+        out.next.hasNote = true;
+      }
     }
   }
   out.hasManage = out.manage.length > 0;
@@ -257,7 +272,7 @@ V.page = (c?: any) => {
     out.table = V.table(c, 'sell2', [['REQUEST', '1.15fr', (o?: any) => o.id], ['SELLER', '1.2fr'], ['MATERIAL', '1.35fr'], ['DECLARED → CERTIFIED', '1.2fr'], ['PAYABLE', '.95fr', (o?: any) => o.total || 0], ['PAYOUT', '1fr'], ['STATUS', '1fr', (o?: any) => V.status(o, A.nextInfo(o))], ['NEXT STEP', '1.35fr', (o?: any) => o.stage], ['IN STEP', '.7fr', (o?: any) => o.sAt]], list.sort((a?: any, b?: any) => b.at - a.at), (o?: any) => {
       const n = A.nextInfo(o), vr = V.variation(o), age = N - o.sAt, over = !n.done && n.mb && age > 24 * A.H, st = V.status(o, n);
       const cert = vr && vr.cert != null ? A.qfmt(vr.cert, o.sell.unit) + ' (' + pctTxt(vr.qtyPct) + ')' : 'Not certified';
-      return { hl: over, cells: [{ t: o.id, id: 1, s: A.date(o.at) }, { t: A.cname(cu(o.cust)), s: cu(o.cust).country }, { t: o.sell.name, s: o.sell.grade }, { t: A.qfmt(o.sell.qty, o.sell.unit), s: '→ ' + cert, tone: vr && vr.cert != null && Math.abs(vr.qtyPct) >= 0.5 ? 'warn' : null }, { t: o.total ? money(o.total) : 'Not quoted', b: !!o.total, s: vr && vr.applied ? 'adjusted' : '' }, { t: o.payout ? (o.payout.ref ? 'Released' : 'To release') : '—', s: o.payout && o.payout.ref ? o.payout.ref : '', tone: o.payout && !o.payout.ref ? 'warn' : o.payout ? 'ok' : null }, { t: st, pill: n.done ? (o.rejected ? 'err' : 'ok') : o.hold ? 'warn' : n.mb ? 'gold' : 'mute' }, { t: n.done ? '—' : n.label, s: n.done ? '' : A.OWNER[n.owner] }, { t: n.done ? '—' : A.ago(age), tone: over ? 'err' : null }], go: () => c.openOrder(o.id) };
+      return { hl: over, cells: [{ t: o.id, id: 1, s: A.date(o.at) }, { t: A.cname(cu(o.cust)), s: cu(o.cust).country }, { t: o.sell.name, s: o.sell.grade }, { t: A.qfmt(o.sell.qty, o.sell.unit), s: '→ ' + cert, tone: vr && vr.material ? 'warn' : null }, { t: o.total ? money(o.total) : 'Not quoted', b: !!o.total, s: vr && vr.applied ? 'adjusted' : '' }, { t: o.payout ? (o.payout.ref ? 'Released' : 'To release') : '—', s: o.payout && o.payout.ref ? o.payout.ref : '', tone: o.payout && !o.payout.ref ? 'warn' : o.payout ? 'ok' : null }, { t: st, pill: n.done ? (o.rejected ? 'err' : 'ok') : o.hold ? 'warn' : n.mb ? 'gold' : 'mute' }, { t: n.done ? '—' : n.label, s: n.done ? '' : A.OWNER[n.owner] }, { t: n.done ? '—' : A.ago(age), tone: over ? 'err' : null }], go: () => c.openOrder(o.id) };
     });
     out.hasTable = true; out.hasChipsOrTools = true;
     return out;

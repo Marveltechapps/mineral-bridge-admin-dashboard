@@ -91,9 +91,23 @@ function stageData(db?: any, o?: any, key?: any, at?: any, p?: any, seed?: any) 
   if (key === 'schedule') o.insp = { agency: p.agency || 'SGS Nigeria', inspector: p.inspector || 'Tunde Afolabi · SGS Nigeria', date: p.date || o.form.slot.date, time: p.time || o.form.slot.time, location: o.form.slot.location };
   if (key === 'inspect') { o.insp.res = { weight: p.weight != null ? +p.weight : o.sell.qty, sample: p.sample || 'SMP-' + t, seals: p.seals || 'MB-SEAL-' + t + '-01 to 04', photos: +(p.photos || 18), result: p.result || 'Quantity and condition verified', notes: p.notes || '', by: p.by || o.insp.inspector, at }; doc('Third-party inspection report', 'SGS-INS-' + t); }
   if (key === 'sgs') { o.sgs = { agency: (o.insp && o.insp.agency) || 'SGS Nigeria', no: p.no || 'SGS-NG-26-' + t, grade: p.grade || o.sell.grade.replace('~', ''), net: p.net != null ? +p.net : o.insp.res.weight, result: p.result || 'Compliant', file: p.file || 'SGS-' + t + '.pdf', at }; doc('Test certificate', o.sgs.no); }
-  if (key === 'approved') o.payout = { amount: o.total, method: o.form.payout.method, account: o.form.payout.account, approvals: [] };
-  if (key === 'payout') { o.payout.ref = p.ref || 'ZB-PO-' + t; o.payout.at = at; doc('Payment advice', 'PA-' + t); }
-  if (key === 'received') { o.vault = { weight: p.weight != null ? +p.weight : o.insp.res.weight, at }; ev('Received at vault', 'Apapa, Lagos'); doc('Proof of delivery', 'POD-' + t); }
+  if (key === 'approved' && !o.payout) {
+    const pay = o.form && o.form.payout ? o.form.payout : {};
+    o.payout = { amount: o.total, method: pay.method || 'Bank transfer', account: pay.account || '', approvals: [] };
+  }
+  if (key === 'payout') {
+    if (!o.payout) {
+      const pay = o.form && o.form.payout ? o.form.payout : {};
+      o.payout = { amount: o.total, method: pay.method || 'Bank transfer', account: pay.account || '', approvals: [] };
+    }
+    o.payout.ref = p.ref || 'ZB-PO-' + t; o.payout.at = at; doc('Payment advice', 'PA-' + t);
+  }
+  if (key === 'received') {
+    const weighed = o.sgs ? o.sgs.net : o.insp && o.insp.res ? o.insp.res.weight : o.sell.qty;
+    o.vault = { weight: p.weight != null ? +p.weight : weighed, at };
+    if (!o.ship) o.ship = { id: 'SSF-' + t, partner: '', mode: '', scope: '', contact: '', from: '', to: 'Apapa, Lagos', events: [], status: '' };
+    ev('Received at vault', 'Apapa, Lagos'); doc('Proof of delivery', 'POD-' + t);
+  }
   if (key === 'done') doc('Completion certificate', 'CC-' + t);
 }
 

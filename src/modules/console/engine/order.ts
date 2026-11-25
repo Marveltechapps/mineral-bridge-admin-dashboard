@@ -16,7 +16,7 @@ function inputs(c?: any, o?: any, key?: any) {
   if (key === 'inspect') return [['weight', 'Weight recorded by SGS (' + o.sell.unit + ')', o.sell.qty], ['seals', 'SGS seal numbers', 'SGS-SEAL-' + t + '-01 to 04'], ['notes', 'SGS inspector notes', '']];
   if (key === 'sgs') return [['no', 'SGS report number', 'SGS-NG-26-' + t], ['grade', 'Certified grade', o.sell.grade.replace('~', '')]];
   if (key === 'payout') return [['ref', 'Payout reference', 'ZB-PO-' + t]];
-  if (key === 'received') return [['weight', 'Received weight (' + o.sell.unit + ')', o.insp && o.insp.res ? o.insp.res.weight : o.sell.qty]];
+  if (key === 'received') return [['weight', 'Received weight (' + o.sell.unit + ')', o.sgs ? o.sgs.net : (o.insp && o.insp.res && o.insp.res.weight ? o.insp.res.weight : o.sell.qty)]];
   if (key === 'accepted' || key === 'reviewed') return [['note', 'Reason, if rejecting', '']];
   return [];
 }
@@ -33,8 +33,8 @@ V.advance = (c?: any, o?: any, sim?: any) => {
   inputs(c, o, s.key).forEach((f?: any) => { p[f[0]] = V.val(c, f[0], f[2]); });
   if (s.key === 'paid' && sim) p.method = 'Bank transfer';
   if (s.key === 'quote') { const e = V.quoteCheck(o, p); if (e) { c.toast(e); return; } }
-  if (s.key === 'received' && o.insp && o.insp.res) { const d = Math.abs(+p.weight - o.insp.res.weight) / o.insp.res.weight * 100; if (d > db.settings.tolerance) { c.toast('Weight differs from inspection by ' + d.toFixed(2) + '% — above the ' + db.settings.tolerance + '% tolerance. Check before recording.'); return; } }
-  if (s.key === 'payout' && o.payout.amount > db.settings.payoutApprover && o.payout.approvals.length < 2) { c.toast('Payouts above ' + MBA.money(db.settings.payoutApprover) + ' need two finance approvals'); return; }
+  if (s.key === 'received' && o.insp && o.insp.res && o.insp.res.weight) { const d = Math.abs(+p.weight - o.insp.res.weight) / o.insp.res.weight * 100; if (d > db.settings.tolerance) { c.toast('Weight differs from inspection by ' + d.toFixed(2) + '% — above the ' + db.settings.tolerance + '% tolerance. Check before recording.'); return; } }
+  if (s.key === 'payout' && o.payout && o.payout.amount > db.settings.payoutApprover && o.payout.approvals.length < 2) { c.toast('Payouts above ' + MBA.money(db.settings.payoutApprover) + ' need two finance approvals'); return; }
   MBA.stageData(db, o, s.key, now, p, false);
   o.hist.push({ at: now, who: s.owner === 'cust' ? MBA.cust(db, o.cust).name + ' (simulated)' : m.name, role: s.owner === 'cust' ? 'Customer' : m.label, text: s.label, note: p.note || p.notes || '' });
   V.log(c, o.kind === 'buy' ? 'Order' : 'Sell request', o.id, s.label, S[o.stage - 1] ? S[o.stage - 1].label : '', s.label, sim ? 'Simulated customer action' : '');
@@ -106,7 +106,7 @@ V.orderDetail = (c?: any, o?: any) => {
   if (o.payout) cards.push({ title: 'Seller payout', rows: [{ k: 'Amount', v: money(o.payout.amount) }, { k: 'To', v: o.payout.method + ' · ' + o.payout.account }, { k: 'Approvals', v: o.payout.approvals.join(', ') || '—' }, { k: 'Reference', v: o.payout.ref ? o.payout.ref + ' · ' + MBA.fmt(o.payout.at) : 'Not released' }] });
   if (o.ship) cards.push({ title: 'Shipment ' + o.ship.id, rows: [{ k: 'Partner', v: o.ship.partner + ' · ' + o.ship.mode + ' · ' + o.ship.scope }, { k: 'Route', v: o.ship.from + ' → ' + o.ship.to }, { k: 'Contact', v: o.ship.contact }], list: o.ship.events.slice().reverse().map((e?: any) => ({ t: e.t, s: e.loc, r: MBA.fmt(e.at) })) });
   if (o.live && o.ship && o.ship.id) { fields.push(['shipLoc', 'Current shipment location', o.ship.to || '']); acts.push(V.act(c, 'Save shipment location', () => { const loc = V.val(c, 'shipLoc', ''); if (!loc) return c.toast('Enter the current location'); o.ship.events.push({ t: 'Location updated', loc, at: Date.now() }); if (V.persistShipment) V.persistShipment(c, o.ship, loc); c.commit('Shipment location saved'); }, 1, 'logistics')); }
-  const docs = db.docs.filter((d?: any) => d.eid === o.id || (o.src !== 'direct' && d.eid === o.src));
+  const docs = db.docs.filter((d?: any) => d.eid === o.id || (o.orderId && d.eid === o.orderId) || (o.src !== 'direct' && d.eid === o.src));
   if (docs.length) cards.push({ title: 'Documents', rows: [], list: docs.map((d?: any) => ({ t: d.type + ' · ' + d.no, s: d.status + ' · v' + d.ver, r: MBA.fmt(d.at), go: () => c.openDrawer('doc', d.no) })) });
   const refunds = db.refunds.filter((r?: any) => r.order === o.id);
   if (refunds.length) cards.push({ title: 'Refunds', rows: [], list: refunds.map((r?: any) => ({ t: r.ref + ' · ' + r.reason, s: r.status, r: money(r.amount), go: () => c.openDrawer('refund', r.ref) })) });
