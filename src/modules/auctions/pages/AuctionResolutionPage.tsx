@@ -56,6 +56,7 @@ export default function AuctionResolutionPage() {
     return <LiveResolution auction={remote.data} />;
   }
   const res = ENDED.find((e) => e.id === auctionId) ?? ENDED[0];
+  if (!res) return <p role="alert">This auction was not found.</p>;
   const met = res.tone === 'green';
   const winnerInitials =
     res.winner === '—'

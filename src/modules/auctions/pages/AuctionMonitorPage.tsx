@@ -97,6 +97,7 @@ export default function AuctionMonitorPage() {
     return <LiveMonitor auction={auctionRemote.data} bids={bidRemote.data ?? []} onReload={() => { auctionRemote.reload(); bidRemote.reload(); }} />;
   }
   const mon = LIVE.find((a) => a.id === auctionId) ?? LIVE[0];
+  if (!mon) return <p role="alert">This auction was not found.</p>;
   const { bids, reserve } = bidFeed(mon);
   const isPaused = !!paused[mon.id];
   const isFlagged = !!flagged[mon.id];

@@ -41,7 +41,7 @@ export function lcDocuments(l: LetterOfCredit) {
   const idx = LC_STAGES.indexOf(l.status);
   const d = l.discrepancies.join(' ').toLowerCase();
   return ['Commercial invoice', 'Bill of lading', 'Certificate of origin', 'Assay certificate', 'Insurance certificate', 'Packing list'].map((name) => {
-    const key = name.split(' ')[0].toLowerCase();
+    const key = (name.split(' ')[0] ?? name).toLowerCase();
     const flagged = d.indexOf(key) >= 0 || (key === 'commercial' && d.indexOf('invoice') >= 0);
     const status = idx < 3 ? (idx < 2 ? 'Not required yet' : 'Awaiting') : flagged ? 'Discrepant' : 'Compliant';
     const tone: Tone = status === 'Compliant' ? 'green' : status === 'Discrepant' ? 'red' : 'gray';

@@ -154,7 +154,9 @@ export default function LotDetailPage() {
     return <LiveLot lot={remote.data} />;
   }
   const sel = LOTS.find((l) => l.id === lotId) ?? LOTS[0];
-  const [costRate, liveRate, unit, bay, cert, lab, assayDate, net] = LOT_EXTRA[sel.id] ?? LOT_EXTRA['MBV-2026-0417'];
+  const extra = sel ? (LOT_EXTRA[sel.id] ?? LOT_EXTRA['MBV-2026-0417']) : undefined;
+  if (!sel || !extra) return <p role="alert">This lot was not found.</p>;
+  const [costRate, liveRate, unit, bay, cert, lab, assayDate, net] = extra;
   const cost = costRate * net;
   const real = liveRate * net;
   const ask = `$${Math.round(real).toLocaleString('en-US')}`;

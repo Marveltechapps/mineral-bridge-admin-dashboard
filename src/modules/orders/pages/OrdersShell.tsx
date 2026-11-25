@@ -15,7 +15,7 @@ export default function OrdersShell() {
   const side = useConsole((s) => s.filters.orderSide);
   const stage = useConsole((s) => s.filters.orderStage);
   const filteredCount = orders.filter(
-    (o) => (side === 'All sides' || o.side === side) && (!stage || STAGES[o.idx] === stage) && match([o.id, o.mineral, o.party, o.side, STAGES[o.idx]]),
+    (o) => (side === 'All sides' || o.side === side) && (!stage || STAGES[o.idx] === stage) && match([o.id, o.mineral, o.party, o.side, STAGES[o.idx] ?? '']),
   ).length;
 
   return (

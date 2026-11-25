@@ -12,9 +12,43 @@ export type ConsoleDb = Record<string, unknown>;
 export type Go = (event?: SyntheticEvent) => void;
 export type Change = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
 
+export type Theme = 'light' | 'dark';
+export type AllocMode = 'catalog' | 'auction' | 'reserve';
+export type RateRange = '12W' | '6M' | '1Y';
+
 export interface Toast { id: number; text: string }
+export interface Notice { id: number; text: string }
 export interface DrawerRef { type: string; id: unknown }
-export interface SortState { i: number; d: number }
+
+/** A drawer field: [label, default value, hint, kind]. Mirrors the design's drawer config. */
+export interface DrawerField {
+  label: string;
+  value?: string;
+  hint?: string;
+  kind?: 'text' | 'area';
+}
+
+export interface DrawerConfig {
+  title: string;
+  sub: string;
+  fields: DrawerField[];
+  cta: string;
+  done: string;
+  draft?: string;
+  secondary?: string;
+  /** Persists the drawer when a live API is configured. Absent in demo mode. */
+  onSubmit?: (values: Record<string, string>, draft: boolean) => Promise<string>;
+}
+
+/**
+ * Sort cursor shared by the console engine (column index `i`) and list tables (column key `k`).
+ * Direction is 1 or -1.
+ */
+export interface SortState {
+  i?: number;
+  k?: string | null;
+  d: number;
+}
 
 /** UI state kept in the Zustand store. */
 export interface ConsoleUiState {

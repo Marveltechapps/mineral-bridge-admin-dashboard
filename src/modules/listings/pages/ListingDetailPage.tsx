@@ -37,7 +37,15 @@ export default function ListingDetailPage() {
       </div>
     );
   }
-  const sel = isDemoMode() ? { ...fixture, priceFloor: '', minParcelLabel: '10% of listing', description: '' } : remote.data!;
+  if (isDemoMode() && !fixture) {
+    return (
+      <div className={layout.stack16}>
+        <BackButton onClick={() => navigate(ROUTES.listings)}>Back to catalog listings</BackButton>
+        <p role="alert">This listing was not found.</p>
+      </div>
+    );
+  }
+  const sel = isDemoMode() && fixture ? { ...fixture, priceFloor: '', minParcelLabel: '10% of listing', description: '' } : remote.data!;
   const unit = unitOf(sel);
   const soldPct = (1 - numeric(sel.qtyLeft) / numeric(sel.qtyTotal)) * 100;
   const price = `${sel.price} / ${unit}`;

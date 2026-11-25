@@ -55,7 +55,7 @@ function AuctionChart({ series, design = false }: { series: number[]; design?: b
   const low = design ? 55 : Math.min(...values);
   const span = design ? 60 : Math.max(...values) - low || 1;
   const pts = values.map((v, i) => [(i / (values.length - 1)) * 620 + 30, 160 - ((v - low) / span) * 120]);
-  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${(p[0] ?? 0).toFixed(1)} ${(p[1] ?? 0).toFixed(1)}`).join(' ');
   return (
     <svg viewBox="0 0 680 180" width="100%" height={180} preserveAspectRatio="none" role="img" aria-label={`Average bids per auction rose from ${values[0]} to ${values[values.length - 1]} over 12 months`}>
       {[0, 1, 2, 3].map((i) => (

@@ -28,7 +28,7 @@ export default function OrderListPage() {
   const page = useConsole((s) => s.orderPage);
 
   const filtered0 = useMemo(
-    () => all.filter((o) => (side === 'All sides' || o.side === side) && (!stage || STAGES[o.idx] === stage) && match([o.id, o.mineral, o.party, o.side, STAGES[o.idx]])),
+    () => all.filter((o) => (side === 'All sides' || o.side === side) && (!stage || STAGES[o.idx] === stage) && match([o.id, o.mineral, o.party, o.side, STAGES[o.idx] ?? ''])),
     [all, side, stage, match],
   );
   const filtered = useSorted(filtered0, 'orders', {
@@ -126,7 +126,7 @@ export default function OrderListPage() {
                 ) : null}
               </span>
               <span style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
-                <Pill tone={STAGE_TONES[o.idx]}>{STAGES[o.idx]}</Pill>
+                <Pill tone={STAGE_TONES[o.idx] ?? 'gray'}>{STAGES[o.idx] ?? ''}</Pill>
                 {o.orderStatus ? (
                   <Text size={10.5} weight={700} tone="ink3">
                     {o.orderStatus}

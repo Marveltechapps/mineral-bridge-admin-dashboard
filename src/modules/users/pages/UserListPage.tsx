@@ -63,7 +63,7 @@ export default function UserListPage() {
                   </Text>
                 </span>
               </span>
-              <Pill tone={TIER_TONE[u.tier]}>Tier {u.tier}</Pill>
+              <Pill tone={TIER_TONE[u.tier] ?? 'gray'}>Tier {u.tier}</Pill>
               <Pill tone={u.tone}>{u.status}</Pill>
               <Text size={12.5} weight={700} tone="ink">
                 {u.orders}

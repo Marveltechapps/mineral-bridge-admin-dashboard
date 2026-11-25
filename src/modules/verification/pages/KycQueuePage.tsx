@@ -186,7 +186,7 @@ function KycCard({ k, open, decided, onChanged }: { k: KycSubmission; open: bool
           </span>
         </span>
         <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Pill tone={TIER_TONE[k.tier]}>Tier {k.tier}</Pill>
+          <Pill tone={TIER_TONE[k.tier] ?? 'gray'}>Tier {k.tier}</Pill>
           <Text size={10.5} weight={600} tone="ink3">
             {TIER_NOTE[k.tier]}
           </Text>

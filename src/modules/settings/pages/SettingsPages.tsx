@@ -227,7 +227,8 @@ export function BitcoinPage() {
   });
   const rows = countries.map((c) => {
     const blocked = c.reg === 'Prohibited';
-    const v = blocked ? false : btcOn[c.code] === undefined ? c.enabled : btcOn[c.code];
+    const stored = btcOn[c.code];
+    const v = blocked ? false : stored === undefined ? c.enabled : stored;
     return { ...c, blocked, v };
   });
   const enabledCount = rows.filter((r) => !r.blocked && r.v).length;

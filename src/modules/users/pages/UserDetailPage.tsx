@@ -81,15 +81,24 @@ export default function UserDetailPage() {
   }, [demo, userId]);
   if (!demo && !live && !error) return <Loader label="Loading account" />;
   if (!demo && (error || !live)) return <p role="alert">{error || 'Account not found.'}</p>;
-  const su = demo
+  if (demo && !demoAccount) return <p role="alert">Account not found.</p>;
+  const su = demo && demoAccount
     ? demoAccount
-    : { name: live!.name, org: live!.org, email: live!.email, tier: live!.tier as 1 | 2 | 3, status: live!.status, orders: live!.orders, joined: live!.joined };
-  const lifetime = demo ? `$${(su.orders * 0.46).toFixed(2)}M` : live!.lifetime;
-  const phone = demo ? `+254 7${10 + su.name.length} ${100 + su.orders} ${100 + su.org.length}` : live!.phone;
-  const orderRows = demo ? USER_ORDERS : live!.orderRows;
-  const ticketRows = demo ? USER_TICKETS : live!.tickets;
-  const documents = demo ? userDocuments(demoAccount) : live!.docs;
-  const disputeLine = demo ? (su.status === 'Rejected' ? '1 open' : 'None') : live!.disputes;
+    : {
+        name: live?.name ?? '',
+        org: live?.org ?? '',
+        email: live?.email ?? '',
+        tier: (live?.tier === 1 || live?.tier === 2 || live?.tier === 3 ? live.tier : 1) as 1 | 2 | 3,
+        status: live?.status ?? '',
+        orders: live?.orders ?? 0,
+        joined: live?.joined ?? '',
+      };
+  const lifetime = demo ? `$${(su.orders * 0.46).toFixed(2)}M` : (live?.lifetime ?? '');
+  const phone = demo ? `+254 7${10 + su.name.length} ${100 + su.orders} ${100 + su.org.length}` : (live?.phone ?? '');
+  const orderRows = demo ? USER_ORDERS : (live?.orderRows ?? []);
+  const ticketRows = demo ? USER_TICKETS : (live?.tickets ?? []);
+  const documents = demo && demoAccount ? userDocuments(demoAccount) : (live?.docs ?? []);
+  const disputeLine = demo ? (su.status === 'Rejected' ? '1 open' : 'None') : (live?.disputes ?? 'None');
   const statusStyle = {
     bg: su.status === 'Verified' ? 'rgba(22,163,74,.18)' : su.status === 'Rejected' ? 'rgba(220,38,38,.2)' : 'rgba(255,255,255,.14)',
     color: su.status === 'Verified' ? '#7FE3A1' : su.status === 'Rejected' ? '#FFB4B4' : '#fff',

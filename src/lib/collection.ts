@@ -11,8 +11,10 @@ export type SortFns<T> = Record<string, (row: T) => string | number>;
 
 /** Stable sort by the active column (design's srt()). */
 export function sortRows<T>(rows: T[], sort: SortState | undefined, fns: SortFns<T>): T[] {
-  if (!sort?.k || !fns[sort.k]) return rows;
-  const f = fns[sort.k];
+  const key = sort?.k;
+  if (!sort || !key) return rows;
+  const f = fns[key];
+  if (!f) return rows;
   const dir = sort.d;
   return rows.slice().sort((a, b) => {
     const x = f(a);

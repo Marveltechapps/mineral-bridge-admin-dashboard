@@ -127,7 +127,14 @@ export function useCurrentAccount(): SessionView {
   const index = useSessionState((s) => s.roleIndex);
   const live = useSessionState((s) => s.liveAccount);
   const account = live ?? STAFF_ACCOUNTS[index] ?? STAFF_ACCOUNTS[0];
-  return { account, first: account.name.split(' ')[0], lockedAt: '18 Sep 2026 · 16:42 EAT' };
+  if (!account) {
+    return {
+      account: { name: '', role: '', initials: '', email: '', demoPassword: '', scope: '' },
+      first: '',
+      lockedAt: '18 Sep 2026 · 16:42 EAT',
+    };
+  }
+  return { account, first: account.name.split(' ')[0] ?? account.name, lockedAt: '18 Sep 2026 · 16:42 EAT' };
 }
 
 export const sessionActions = {

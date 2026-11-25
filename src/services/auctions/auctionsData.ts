@@ -65,8 +65,8 @@ export function bidFeed(a: LiveAuction) {
   ];
   const bids = AGES.map((age, i) => {
     const who = others[i % others.length];
-    const name = i === 0 ? a.leader : who[0];
-    const tier = i === 0 ? 'Tier 3' : who[1];
+    const name = i === 0 ? a.leader : (who?.[0] ?? a.leader);
+    const tier = i === 0 ? 'Tier 3' : (who?.[1] ?? 'Tier 2');
     return {
       amount: `$${Math.round(topBid - step * i).toLocaleString('en-US')}`,
       bidder: name,

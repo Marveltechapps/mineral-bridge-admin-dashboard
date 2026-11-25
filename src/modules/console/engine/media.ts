@@ -100,7 +100,7 @@ const ALIAS: Record<string, string[]> = {
 };
 const colAt = (head: string[], key: string) => {
   const names = ALIAS[key] || [key];
-  for (let i = 0; i < names.length; i++) { const at = head.indexOf(names[i]); if (at >= 0) return at; }
+  for (let i = 0; i < names.length; i++) { const name = names[i]; if (!name) continue; const at = head.indexOf(name); if (at >= 0) return at; }
   return -1;
 };
 const trimCells = (row?: any) => {

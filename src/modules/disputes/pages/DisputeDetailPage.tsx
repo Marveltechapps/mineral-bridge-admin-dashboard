@@ -48,7 +48,8 @@ export default function DisputeDetailPage() {
     );
   }
   const fixture = DISPUTES.find((d) => d.id === disputeId) ?? DISPUTES[0];
-  const sd = isDemoMode() ? { ...fixture, partyId: '', attachments: ATTACHMENTS } : disputeRemote.data!;
+  if (isDemoMode() && !fixture) return <p role="alert">This dispute was not found.</p>;
+  const sd = isDemoMode() && fixture ? { ...fixture, partyId: '', attachments: ATTACHMENTS } : disputeRemote.data!;
   const thread = isDemoMode()
     ? THREAD.map((m) => ({ id: m.time, from: m.from, who: m.who, text: m.text, time: m.time }))
     : (messageRemote.data ?? []);

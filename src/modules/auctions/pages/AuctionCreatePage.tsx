@@ -49,7 +49,9 @@ export default function AuctionCreatePage() {
       </div>
     );
   }
-  const [title, sub, cost, real, start, reserve, increment] = CREATE_LOTS[createLot] ?? CREATE_LOTS['MBV-2026-0412'];
+  const preset = CREATE_LOTS[createLot] ?? CREATE_LOTS['MBV-2026-0412'];
+  if (!preset) return <p role="alert">This lot is not available for auction.</p>;
+  const [title, sub, cost, real, start, reserve, increment] = preset;
 
   return (
     <div className={layout.stack16}>

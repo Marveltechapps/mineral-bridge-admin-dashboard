@@ -48,7 +48,7 @@ export default function CompletionPage() {
                     <Text size={10} weight={800} tone="ink3" style={{ width: 16 }}>
                       T{i + 1}
                     </Text>
-                    <Bar pct={v} height={5} radius={3} fill={TIER_COLORS[i]} style={{ flex: 1 }} />
+                    <Bar pct={v} height={5} radius={3} fill={TIER_COLORS[i] ?? 'var(--line4)'} style={{ flex: 1 }} />
                     <Text size={10} weight={700} tone="ink2" align="right" style={{ width: 30 }}>
                       {v}%
                     </Text>

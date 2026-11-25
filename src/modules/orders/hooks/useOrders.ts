@@ -119,7 +119,7 @@ export function orderDetail(sel: LiveOrder) {
   if (!isDemoMode()) return liveOrderDetail(sel);
   const ex = ORDER_EXTRA[sel.id];
   const isSell = sel.side === 'Sell';
-  const openDay = parseInt((ex?.opened || '04 Sep 2026').split(' ')[0], 10);
+  const openDay = parseInt((ex?.opened || '04 Sep 2026').split(' ')[0] ?? '4', 10);
   const stampFor = (i: number) => {
     const d = openDay + Math.round(i * 1.4);
     const mon = d > 30 ? 'Oct' : 'Sep';
@@ -127,7 +127,8 @@ export function orderDetail(sel: LiveOrder) {
   };
   const agentName = AGENT_NAMES[sel.agent] || 'F. Wanjiru';
   const stageAgents = ['L. Achieng', 'G. Kioko', 'D. Kimani', agentName, 'G. Kioko', agentName];
-  const carrierShort = (ex?.carrier || 'carrier unassigned').split(' · ')[0];
+  const agentAt = (index: number) => stageAgents[index] ?? agentName;
+  const carrierShort = (ex?.carrier || 'carrier unassigned').split(' · ')[0] ?? 'carrier unassigned';
 
   const descFor = (i: number) => {
     if (i === 1) return `Desk locked rate at ${ex?.rate || '—'}`;
@@ -135,7 +136,7 @@ export function orderDetail(sel: LiveOrder) {
     if (i === 3) return sel.idx === 3 ? 'Weighing and field test in progress' : `Approved · ${sel.qty} confirmed against declaration`;
     if (i === 4) return `${sel.idx >= 4 ? 'Paid ' : 'Pays '}${ex?.value || '—'} to the seller`;
     if (i === 5) return `Sealed #${ex?.seal || '—'} · ${carrierShort} → ${ex?.dest || 'MB vault'}`;
-    return STAGE_DESC[i][0];
+    return STAGE_DESC[i]?.[0] ?? '';
   };
 
   const tracker = STAGES.map((name, i) => {
@@ -144,7 +145,7 @@ export function orderDetail(sel: LiveOrder) {
       title: name,
       desc: descFor(i),
       time: i < sel.idx ? stampFor(i) : i === sel.idx ? `Started ${stampFor(i)}` : `Projected ${stampFor(i)}`,
-      agent: i <= sel.idx ? stageAgents[i] : 'Unassigned',
+      agent: i <= sel.idx ? agentAt(i) : 'Unassigned',
       state,
     };
   });
@@ -179,15 +180,15 @@ export function orderDetail(sel: LiveOrder) {
   ];
 
   const tlAll: Array<[string, string, number]> = [
-    [`Parcel sealed #${ex?.seal || '—'} and handed to ${(ex?.carrier || 'carrier').split(' · ')[0]}`, stageAgents[5], 5],
-    ['Packing photographs uploaded', stageAgents[5], 5],
-    [`Payment of ${ex?.value || '—'} released to ${isSell ? 'seller' : 'escrow'}`, stageAgents[4], 4],
-    ['Agent approved the consignment on site', stageAgents[3], 3],
-    ['Field weight and purity test recorded', stageAgents[3], 3],
-    [`Agent visit completed at ${ex?.origin || 'site'}`, stageAgents[2], 2],
-    ['Visit window confirmed with counterparty', stageAgents[2], 2],
-    [`Rate locked at ${ex?.rate || '—'}`, stageAgents[1], 1],
-    [`Tier ${sel.tier} documents verified`, stageAgents[0], 0],
+    [`Parcel sealed #${ex?.seal || '—'} and handed to ${(ex?.carrier || 'carrier').split(' · ')[0] ?? 'carrier'}`, agentAt(5), 5],
+    ['Packing photographs uploaded', agentAt(5), 5],
+    [`Payment of ${ex?.value || '—'} released to ${isSell ? 'seller' : 'escrow'}`, agentAt(4), 4],
+    ['Agent approved the consignment on site', agentAt(3), 3],
+    ['Field weight and purity test recorded', agentAt(3), 3],
+    [`Agent visit completed at ${ex?.origin || 'site'}`, agentAt(2), 2],
+    ['Visit window confirmed with counterparty', agentAt(2), 2],
+    [`Rate locked at ${ex?.rate || '—'}`, agentAt(1), 1],
+    [`Tier ${sel.tier} documents verified`, agentAt(0), 0],
   ];
   const timeline = tlAll.filter((t) => t[2] <= sel.idx).map((t) => ({ text: t[0], meta: `${t[1]} · ${stampFor(t[2])}` }));
 

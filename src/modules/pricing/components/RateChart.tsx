@@ -5,7 +5,7 @@ export const RateChart = memo(function RateChart({ hist, label }: { hist: number
   const min = Math.min(...hist) * 0.994;
   const max = Math.max(...hist) * 1.006;
   const pts = hist.map((v, i) => [(i / (hist.length - 1)) * 660 + 20, 170 - ((v - min) / (max - min)) * 140]);
-  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${(p[0] ?? 0).toFixed(1)} ${(p[1] ?? 0).toFixed(1)}`).join(' ');
   const area = `${line} L680 180 L20 180 Z`;
   return (
     <svg viewBox="0 0 700 200" width="100%" height={200} preserveAspectRatio="none" role="img" aria-label={label}>

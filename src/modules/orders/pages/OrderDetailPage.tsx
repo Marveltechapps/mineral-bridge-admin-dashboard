@@ -95,8 +95,8 @@ export default function OrderDetailPage() {
                   {d.stageLine}
                 </Text>
               </div>
-              <Pill tone={STAGE_TONES[sel.idx]} fontSize={10}>
-                {STAGES[sel.idx].toUpperCase()}
+              <Pill tone={STAGE_TONES[sel.idx] ?? 'gray'} fontSize={10}>
+                {(STAGES[sel.idx] ?? '').toUpperCase()}
               </Pill>
             </div>
             <div className={styles.trackScroll}>

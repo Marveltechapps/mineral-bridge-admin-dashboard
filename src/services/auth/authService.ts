@@ -23,8 +23,9 @@ export function authenticateDemo(emailRaw: string, passwordRaw: string): AuthRes
   const password = passwordRaw.trim();
   if (!email || !password) return { ok: false, error: 'Enter your work email and password.' };
   const index = STAFF_ACCOUNTS.findIndex((a) => a.email === email);
-  if (index < 0) return { ok: false, error: 'No staff account matches that email.' };
-  if (!STAFF_ACCOUNTS[index].demoPassword || STAFF_ACCOUNTS[index].demoPassword !== password) {
+  const account = index >= 0 ? STAFF_ACCOUNTS[index] : undefined;
+  if (!account) return { ok: false, error: 'No staff account matches that email.' };
+  if (!account.demoPassword || account.demoPassword !== password) {
     return { ok: false, error: `Incorrect password for ${email}.` };
   }
   return { ok: true, index };
