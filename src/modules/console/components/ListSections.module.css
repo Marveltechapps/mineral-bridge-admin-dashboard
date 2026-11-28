@@ -28,6 +28,7 @@
 .tableTitle { padding: 14px 20px; border-bottom: 1px solid var(--line2); }
 .row:hover { background: var(--hl) !important; }
 .rowButtons { display: flex; flex-wrap: nowrap; gap: 6px; justify-content: flex-end; }
+.check { width: 16px; height: 16px; margin: 0; accent-color: var(--btn); cursor: pointer; flex-shrink: 0; }
 .empty { padding: 36px; text-align: center; font-size: 12.5px; font-weight: 600; color: var(--ink3); }
 .count { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; font-size: 11.5px; font-weight: 600; color: var(--ink3); }
 .pager { display: flex; gap: 8px; }

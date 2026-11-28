@@ -5,11 +5,36 @@ import { ActionButtons } from './ActionButton';
 import { Icon } from './Icon';
 import styles from './Drawer.module.css';
 
+function phLabel(ph: string) {
+  if (ph === 'unavailable') return 'File unavailable';
+  return ph;
+}
+
+function Thumb({ src }: { src: string }) {
+  const [broken, setBroken] = useState(false);
+  if (!src || broken) return <span className={styles.thumbPh}>File unavailable</span>;
+  return (
+    <a href={src} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label="View full size">
+      <img src={src} alt="" className={styles.thumb} onError={() => setBroken(true)} />
+    </a>
+  );
+}
+
+function PreviewImage({ src }: { src: string }) {
+  const [broken, setBroken] = useState(false);
+  if (!src || broken) return <div className={styles.placeholder}>File unavailable</div>;
+  return (
+    <a href={src} target="_blank" rel="noopener noreferrer" className={styles.previewLink} aria-label="View full size">
+      <img src={src} alt="" className={styles.previewImg} onError={() => setBroken(true)} />
+    </a>
+  );
+}
+
 function SectionItem({ item }: { item: DrawerItemVM }) {
   return (
     <div onClick={item.go} style={sx(item.style)}>
-      {item.hasImg && <span style={sx(item.imgStyle)} />}
-      {item.hasPh && <span className={styles.thumbPh}>{item.phText}</span>}
+      {item.hasImg && <Thumb src={item.imgSrc} />}
+      {item.hasPh && <span className={styles.thumbPh}>{phLabel(item.phText)}</span>}
       <span className={styles.itemText}>
         <span className={styles.itemT}>{item.t}</span>
         <span className={styles.itemS}>{item.s}</span>
@@ -63,8 +88,11 @@ export function Drawer({ dw }: { dw: DrawerVM }) {
         <div className={styles.body}>
           {dw.hasPreview && (
             <>
-              {dw.hasPreviewImg && <div style={sx(dw.previewStyle)} />}
-              {dw.hasPreviewPh && <div className={styles.placeholder}>{dw.previewPh}</div>}
+              {dw.hasPreviewImg && <PreviewImage src={dw.previewSrc} />}
+              {dw.hasPreviewPh && <div className={styles.placeholder}>{phLabel(dw.previewPh)}</div>}
+              {dw.previewHref && !dw.hasPreviewImg && (
+                <a href={dw.previewHref} target="_blank" rel="noopener noreferrer" className={styles.previewLink} style={{ padding: 12, fontWeight: 700 }}>Open full size</a>
+              )}
             </>
           )}
           {dw.hasFields && (

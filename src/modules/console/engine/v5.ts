@@ -221,16 +221,18 @@ D.sfile = (c?: any, key?: any) => {
   const [oid, ixs] = String(key).split('|'), i = +(ixs as any), db = c.state.db, o = db.orders.find((x?: any) => x.id === oid);
   if (!o) return { title: 'Request removed', sub: '', fields: [], sections: [], inputs: [], actions: [] };
   const fs = sfiles(o), f = fs[i], cu = A.cust(db, o.cust);
-  const acts = [{ label: 'Download', style: V.B[2], go: () => { V.download(f.name, fileBlob(o, f)); V.log(c, 'Sell request', o.id, 'Seller file downloaded', '', f.name); c.commit('Downloaded ' + f.name); } }];
+  const acts = [{ label: 'Download', style: V.B[2], go: () => { if (f.url) { window.open(f.url, '_blank', 'noopener'); V.log(c, 'Sell request', o.id, 'Seller file opened', '', f.name); c.commit('Opened ' + f.name); return; } V.download(f.name, fileBlob(o, f)); V.log(c, 'Sell request', o.id, 'Seller file downloaded', '', f.name); c.commit('Downloaded ' + f.name); } }];
   if (i > 0) acts.push({ label: '‹ Previous', style: V.B[2], go: () => c.openDrawer('sfile', oid + '|' + (i - 1)) });
   if (i < fs.length - 1) acts.push({ label: 'Next ›', style: V.B[2], go: () => c.openDrawer('sfile', oid + '|' + (i + 1)) });
   acts.push(V.act(c, 'Ask seller to re-upload', () => { const r = V.val(c, 'why', ''); if (!r) return c.toast('Say what is wrong with this file'); f.flag = r; o.hist.push({ at: now(), who: V.me(c).name, role: V.me(c).label, text: 'Re-upload requested', note: f.label + ': ' + r }); V.log(c, 'Sell request', o.id, 'Re-upload requested', '', f.name, r); V.tell(c, o.cust, 'Please re-upload ' + f.label, o.id); c.form = {}; c.commit('Re-upload requested from ' + cu.name); }, 2, 'ops'));
   acts.push(V.act(c, 'Attach file for demo', () => V.pick(f.kind === 'photo' ? 'image/*' : '.pdf,image/*', false, (fl?: any) => { const x = fl[0]; if (!x) return; f.file = x; f.name = x.name; f.size = Math.max(1, Math.round(x.size / 1024)) + ' KB'; if (/^image\//.test(x.type)) { const r = new FileReader(); r.onload = () => { f.url = r.result; c.commit(x.name + ' attached'); }; r.readAsDataURL(x); } else c.commit(x.name + ' attached'); }), 2, 'ops'));
   acts.push({ label: 'Close', style: V.B[2], go: () => c.setState({ drawer: null }) });
-  return { title: f.label, sub: o.id + ' · ' + cu.name + ' · file ' + (i + 1) + ' of ' + fs.length, pill: f.flag ? 're-upload requested' : f.kind === 'photo' ? 'photo' : 'document', pillStyle: V.pill(f.flag ? 'warn' : 'info'),
-    preview: { img: f.url || '', ph: (f.kind === 'photo' ? 'PHOTO · ' : 'PDF · ') + f.label.toUpperCase() + ' · ' + f.name },
+  const pdf = /\.pdf$/i.test(f.name || '') || f.mimeType === 'application/pdf' || (f.kind === 'doc' && !/^image\//.test(f.mimeType || ''));
+  const missing = f.availability === 'unavailable' || !f.url;
+  return { title: f.label, sub: o.id + ' · ' + cu.name + ' · file ' + (i + 1) + ' of ' + fs.length, pill: f.flag ? 're-upload requested' : missing ? 'unavailable' : f.kind === 'photo' ? 'photo' : 'document', pillStyle: V.pill(f.flag ? 'warn' : missing ? 'err' : 'info'),
+    preview: { img: !missing && !pdf ? f.url : '', open: !missing ? f.url : '', ph: missing ? 'File unavailable' : pdf ? 'PDF' : ((f.kind === 'photo' ? 'PHOTO · ' : 'PDF · ') + f.label.toUpperCase() + ' · ' + f.name) },
     fields: [kv('File', f.name + ' · ' + f.size), kv('Uploaded by', cu.name + ' in the app'), kv('Uploaded', A.fmt(o.at)), kv('Material', o.sell.name + ' · ' + A.qfmt(o.sell.qty, o.sell.unit) + ' · ' + o.sell.grade), kv('Re-upload note', f.flag)],
-    sections: [{ title: 'All uploads · ' + fs.length, items: fs.map((x?: any, k?: any) => ({ t: (k === i ? '● ' : '') + x.label, s: x.name, ph: x.url ? '' : (x.kind === 'photo' ? 'IMG' : 'PDF'), img: x.url || '', go: () => c.openDrawer('sfile', oid + '|' + k) })) }],
+    sections: [{ title: 'All uploads · ' + fs.length, items: fs.map((x?: any, k?: any) => { const doc = /\.pdf$/i.test(x.name || '') || x.mimeType === 'application/pdf' || (x.kind === 'doc' && !/^image\//.test(x.mimeType || '')); const gone = x.availability === 'unavailable' || !x.url; return { t: (k === i ? '● ' : '') + x.label, s: x.name, ph: gone ? 'File unavailable' : doc ? 'PDF' : '', img: !gone && !doc ? x.url : '', go: () => c.openDrawer('sfile', oid + '|' + k) }; }) }],
     inputs: [V.inp(c, 'why', 'What is wrong (if asking for a re-upload)', '', true)], actions: acts };
 };
 

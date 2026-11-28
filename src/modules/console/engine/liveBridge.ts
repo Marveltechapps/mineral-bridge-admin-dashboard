@@ -1222,16 +1222,25 @@ V.persistRole = (c: any, key: string, patch: { label?: string; actions?: string[
     .catch((err) => fail(c, err));
 };
 
-V.persistMasterSheet = (c: any, csv: string) => {
-  if (!c?.state?.db?.live || !csv) return;
-  void adminApi.post<{ imported: number; created: number; updated: number; skipped: number; invalid: number }>('/catalogue/master-sheet', { csv })
-    .then((res) => {
-      c.sheet = null;
-      c.setState({ drawer: null });
-      c.commit('Imported ' + res.imported + ' products · ' + res.created + ' new · ' + res.updated + ' updated');
-      return reload(c);
-    })
-    .catch((err) => fail(c, err));
+V.persistMasterSheet = async (c: any, csv: string, filename?: string) => {
+  if (!c?.state?.db?.live || !csv) return null;
+  try {
+    const res = await adminApi.post<{ imported: number; created: number; updated: number; unchanged?: number; skipped: number; invalid: number }>('/catalogue/master-sheet', { csv });
+    c.sheet = null;
+    c.setState({ drawer: null });
+    const failed = (res.skipped || 0) + (res.invalid || 0);
+    const msg = 'Imported ' + res.imported + ' lots'
+      + ' · ' + res.created + ' new'
+      + ' · ' + res.updated + ' updated'
+      + (failed ? ' · ' + failed + ' skipped or failed' : '')
+      + (filename ? ' · ' + filename : '');
+    c.commit(msg);
+    await reload(c);
+    return res;
+  } catch (err) {
+    fail(c, err);
+    throw err;
+  }
 };
 
 V.persistRoleDelete = (c: any, key: string, reason: string) => {

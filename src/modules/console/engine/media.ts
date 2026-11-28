@@ -8,7 +8,7 @@ const V = MBV, D = V.D, M = () => MBA;
 const now = () => Date.now();
 const COLS = ['lot_id', 'name', 'subcategory', 'form', 'quantity', 'unit', 'min_order', 'grade', 'origin', 'lab', 'certificate', 'status'];
 const kb = (n?: any) => n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
-V.pick = (accept?: any, multi?: any, cb?: any) => { const i = document.createElement('input'); i.type = 'file'; i.accept = accept; i.multiple = !!multi; i.style.display = 'none'; i.onchange = () => { cb([...(i.files as any)]); i.remove(); }; document.body.appendChild(i); i.click(); };
+V.pick = (accept?: any, multi?: any, cb?: any) => { const i = document.createElement('input'); i.type = 'file'; i.accept = accept; i.multiple = !!multi; i.style.display = 'none'; let done = false; const finish = (files?: any) => { if (done) return; done = true; cb(files || []); i.remove(); }; i.onchange = () => finish([...(i.files as any)]); i.addEventListener('cancel', () => finish([])); document.body.appendChild(i); i.click(); };
 V.download = (name?: any, data?: any, mime?: any) => { const blob = data instanceof Blob ? data : new Blob([data], { type: mime || 'text/plain' }); const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); };
 V.pdf = (title?: any, lines?: any) => {
   const esc = (s?: any) => String(s).replace(/[\\()]/g, m => '\\' + m).replace(/[^\x20-\x7E]/g, '-');
@@ -88,9 +88,9 @@ const ALIAS: Record<string, string[]> = {
   subcategory: ['subcategory', 'sub_category', 'sub_category_name', 'category_and_sub_category_name', 'category_and_subcategory_name'],
   category: ['category'],
   form: ['form', 'product_form'],
-  quantity: ['quantity', 'availability', 'avail'],
-  unit: ['unit', 'units'],
-  min_order: ['min_order', 'minimum', 'min'],
+  quantity: ['quantity', 'availability', 'avail', 'available_quantity', 'available_qty', 'available', 'available_stock', 'stock'],
+  unit: ['unit', 'units', 'uom', 'unit_of_measure'],
+  min_order: ['min_order', 'minimum', 'min', 'minimum_quantity', 'min_quantity', 'minimum_order', 'min_qty', 'minimum_qty'],
   grade: ['grade', 'purity', 'specification'],
   origin: ['origin', 'country'],
   lab: ['lab', 'laboratory'],
@@ -135,7 +135,8 @@ const validate = (db?: any, rows?: any) => {
       const f = V.subOf(db, x.subcategory.toLowerCase());
       if (!x.name) errs.push('name is empty');
       if (!f) errs.push('unknown subcategory "' + x.subcategory + '"'); else if (!f.sub.active || !f.cat.active) errs.push('subcategory is switched off');
-      if (['g', 'kg', 't', 'ct'].indexOf(x.unit) < 0) errs.push('unit must be g, kg, t or ct');
+      const packed = /^(\d+(?:\.\d+)?)\s*([A-Za-z]+)$/.exec(String(x.unit || '').replace(/,/g, ''));
+      if (packed && x.quantity === '') { x.quantity = packed[1]; x.unit = packed[2]; }
       if (x.quantity === '' || isNaN(+x.quantity) || +x.quantity < 0) errs.push('quantity must be a number');
       if (x.min_order !== '' && isNaN(+x.min_order)) errs.push('min_order must be a number');
       if (x.status && ['listed', 'draft', 'archived', 'sold out'].indexOf(x.status) < 0) errs.push('status must be listed, draft, archived or sold out');
@@ -187,7 +188,7 @@ D.sheet = (c?: any) => {
             if (!cat.subs.find((sub?: any) => sub.id === sid)) cat.subs.push({ id: sid, label: x.subcategory || x.name, active: true });
             x.mineralKey = sid;
           }
-          const data = { name: x.name, mineral: s.kind === 'sku' ? x.mineralKey : x.subcategory.toLowerCase(), form: x.form, avail: x.quantity === '' ? 0 : +x.quantity, unit: ['g', 'kg', 't', 'ct'].indexOf(x.unit) >= 0 ? x.unit : 'kg', min: x.min_order === '' ? (r.ex ? r.ex.min : 0) : +x.min_order, grade: x.grade, ref: +x.price || +x.ref_price || 0, origin: x.origin, lab: x.lab, cert: x.certificate, status: x.status || (r.ex ? r.ex.status : 'draft') };
+          const data = { name: x.name, mineral: s.kind === 'sku' ? x.mineralKey : x.subcategory.toLowerCase(), form: x.form, avail: x.quantity === '' ? (r.ex ? r.ex.avail : 0) : +x.quantity, unit: x.unit || (r.ex ? r.ex.unit : 'kg'), min: x.min_order === '' ? (r.ex ? r.ex.min : 0) : +x.min_order, grade: x.grade, ref: +x.price || +x.ref_price || 0, origin: x.origin, lab: x.lab, cert: x.certificate, status: x.status || (r.ex ? r.ex.status : 'draft') };
           if (r.ex) { Object.assign(r.ex, data); up++; } else { db.lots.unshift(Object.assign({ id: x.lot_id || 'N-' + (8000 + db.lots.length), images: 0, docs: [], reserved: 0 }, data)); nw++; } });
         V.log(c, 'Lot', 'master sheet', 'Master sheet imported', '', nw + ' new · ' + up + ' updated · ' + bad.length + ' skipped', s.name);
         c.sheet = null; c.setState({ drawer: null }); c.commit('Imported ' + nw + ' new and ' + up + ' updated' + (s.kind === 'sku' ? ' products' : ' lots') + (bad.length ? ' · ' + bad.length + ' rows skipped' : ''));
@@ -198,10 +199,70 @@ D.sheet = (c?: any) => {
   return out;
 };
 // catalogue toolbar
+const sheetLock = { on: false };
+const workbookRows = async (f: File) => {
+  if (/\.xlsx?$/i.test(f.name)) {
+    const X = await import(/* @vite-ignore */ XLSX_URL);
+    const wb = X.read(await f.arrayBuffer());
+    const sku = (wb.SheetNames || []).find((n: string) => String(n).trim().toLowerCase() === 'sku');
+    const sheet = wb.Sheets[sku || wb.SheetNames[0]];
+    const rows = X.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+    const csv = X.utils.sheet_to_csv(sheet);
+    return { rows, csv };
+  }
+  const text = await f.text();
+  return { rows: parseCSV(text), csv: text };
+};
+V.startMasterUpload = (c?: any) => {
+  if (!c || sheetLock.on || c.sheetUpload?.busy) return;
+  if (!V.can(c, 'catalogue')) return c.toast('Needs Catalogue manager — you are signed in as ' + V.me(c).label);
+  sheetLock.on = true;
+  const unlock = () => { sheetLock.on = false; };
+  V.pick('.csv,.tsv,.txt,.xlsx,.xls', false, async (fs?: any) => {
+    unlock();
+    const f = fs && fs[0];
+    if (!f || c.sheetUpload?.busy) return;
+    if (!/\.(csv|tsv|txt|xlsx|xls)$/i.test(f.name)) {
+      c.toast(f.name + ' is not a CSV or Excel file. Choose a .csv, .xlsx or .xls master sheet.');
+      return;
+    }
+    c.sheetUpload = { busy: true, name: f.name };
+    c.toast('Uploading ' + f.name + '…');
+    c.commit();
+    try {
+      const loaded = await workbookRows(f);
+      if (!loaded.rows || loaded.rows.length < 2) throw new Error('The sheet has no data rows.');
+      const checked = validate(c.state.db, loaded.rows);
+      if (checked.fatal) throw new Error(checked.fatal);
+      if (c.state.db.live && V.persistMasterSheet) {
+        await V.persistMasterSheet(c, loaded.csv || '', f.name);
+      } else {
+        c.sheet = Object.assign({ name: f.name, size: kb(f.size) }, checked);
+        c.openDrawer('sheet', 'new');
+        c.commit(f.name + ' is ready to import');
+      }
+    } catch (err) {
+      const apiError = err && typeof err === 'object' && 'status' in (err as any) && 'code' in (err as any);
+      if (!apiError) c.toast(err && (err as any).message ? (err as any).message : 'The master sheet could not be imported');
+    } finally {
+      c.sheetUpload = { busy: false, name: '' };
+      c.commit();
+    }
+  });
+  setTimeout(unlock, 60000);
+};
 const page = V.page;
 V.page = (c?: any) => {
   const out = page(c);
-  if (c.state.nav === 'catalogue' && (c.state.tab.catalogue || 'Lots') === 'Lots') { out.tools = [V.act(c, 'Upload master sheet', () => { c.sheet = null; c.openDrawer('sheet', 'new'); }, 2, 'catalogue'), { label: 'Export master sheet', style: V.B[2], go: () => V.exportSheet(c) }].concat(out.tools || []); out.hasTools = true; out.hasChipsOrTools = true; }
+  if (c.state.nav === 'catalogue' && (c.state.tab.catalogue || 'Lots') === 'Lots') {
+    const busy = !!(c.sheetUpload && c.sheetUpload.busy);
+    const upload = busy
+      ? { label: 'Upload master sheet · ' + (c.sheetUpload.name || 'file'), style: V.B.off, disabled: true, go: () => {} }
+      : V.act(c, 'Upload master sheet', () => V.startMasterUpload(c), 2, 'catalogue');
+    out.tools = [upload, { label: 'Export master sheet', style: V.B[2], go: () => V.exportSheet(c) }].concat(out.tools || []);
+    out.hasTools = true;
+    out.hasChipsOrTools = true;
+  }
   return out;
 };
 
@@ -252,7 +313,7 @@ const kycD = D.kyc;
 D.kyc = (c?: any, ref?: any) => {
   const v = kycD(c, ref), db = c.state.db, k = db.kyc.find((x?: any) => x.ref === ref);
   const sec = v.sections.find((s?: any) => s.title === 'Documents');
-  if (sec) sec.items = k.docs.map((d?: any, i?: any) => { const preview = kycDocPreview(d); return { t: d.label, s: (d.name || kycFile(k, d)) + (d.note ? ' · ' + d.note : ''), r: kycWord(d.status), pill: true, pillStyle: V.pill(kycTone(d.status)), ph: preview.ph, img: preview.img, go: () => c.openDrawer('kycDoc', ref + '|' + i), btns: [{ label: 'View', go: () => c.openDrawer('kycDoc', ref + '|' + i) }, { label: 'Download', go: () => { V.download(d.name || kycFile(k, d), kycBlob(db, k, d)); V.log(c, 'KYC', k.ref, 'Document downloaded', '', d.label); c.commit(); } }] }; });
+  if (sec) sec.items = k.docs.map((d?: any, i?: any) => { const preview = kycDocPreview(d); return { t: d.label, s: (d.name || kycFile(k, d)) + (d.note ? ' · ' + d.note : ''), r: kycWord(d.status), pill: true, pillStyle: V.pill(kycTone(d.status)), ph: preview.ph, img: preview.img, go: () => c.openDrawer('kycDoc', ref + '|' + i), btns: [{ label: 'View', go: () => c.openDrawer('kycDoc', ref + '|' + i) }, { label: 'Download', go: () => { if (d.url) { window.open(d.url, '_blank', 'noopener'); V.log(c, 'KYC', k.ref, 'Document opened', '', d.label); c.commit('Opened ' + (d.name || d.label)); return; } V.download(d.name || kycFile(k, d), kycBlob(db, k, d)); V.log(c, 'KYC', k.ref, 'Document downloaded', '', d.label); c.commit(); } }] }; });
   const flagged = k.docs.filter((d?: any) => d.status === 'flagged');
   if (flagged.length && k.status === 'pending') v.fields.push(kv('Flagged for re-upload', flagged.map((d?: any) => d.label).join(', ')));
   return v;
@@ -261,7 +322,7 @@ D.kycDoc = (c?: any, id?: any) => {
   const [ref, ix] = String(id).split('|'), i = +(ix as any), db = c.state.db, k = db.kyc.find((x?: any) => x.ref === ref), d = k.docs[i], cu = MBA.cust(db, k.cust);
   const name = d.name || kycFile(k, d), pdf = /\.pdf$/i.test(name), can = V.can(c, 'kyc'), open = k.status === 'pending';
   const acts = [{ label: '← Back to ' + k.ref, style: V.B[2], go: () => c.openDrawer('kyc', ref) }];
-  acts.push({ label: 'Download', style: V.B[2], go: () => { V.download(name, kycBlob(db, k, d)); V.log(c, 'KYC', k.ref, 'Document downloaded', '', d.label); c.commit('Downloaded ' + name); } });
+  acts.push({ label: 'Download', style: V.B[2], go: () => { if (d.url) { window.open(d.url, '_blank', 'noopener'); V.log(c, 'KYC', k.ref, 'Document opened', '', d.label); c.commit('Opened ' + name); return; } V.download(name, kycBlob(db, k, d)); V.log(c, 'KYC', k.ref, 'Document downloaded', '', d.label); c.commit('Downloaded ' + name); } });
   if (i > 0) acts.push({ label: '‹ Previous', style: V.B[2], go: () => c.openDrawer('kycDoc', ref + '|' + (i - 1)) });
   if (i < k.docs.length - 1) acts.push({ label: 'Next ›', style: V.B[2], go: () => c.openDrawer('kycDoc', ref + '|' + (i + 1)) });
   if (open && d.status !== 'ok') acts.push(V.act(c, 'Mark verified', () => { d.status = 'ok'; d.note = ''; V.log(c, 'KYC', k.ref, 'Document verified', '', d.label); c.commit(d.label + ' verified'); if (i < k.docs.length - 1) c.openDrawer('kycDoc', ref + '|' + (i + 1)); }, 4, 'kyc'));
@@ -270,7 +331,7 @@ D.kycDoc = (c?: any, id?: any) => {
   acts.push(V.act(c, 'Attach scan for demo', () => V.pick('image/*,.pdf', false, async (fs?: any) => { const x = fs[0]; if (!x) return; d.file = x; d.name = x.name; d.size = kb(x.size); d.url = /^image\//.test(x.type) ? await readUrl(x) : ''; V.log(c, 'KYC', k.ref, 'Scan attached', '', d.label); c.commit(x.name + ' attached'); }), 2, 'kyc'));
   return {
     title: d.label, sub: k.ref + ' · ' + cu.name + ' · document ' + (i + 1) + ' of ' + k.docs.length, pill: kycWord(d.status), pillStyle: V.pill(kycTone(d.status)),
-    preview: (() => { const shot = kycDocPreview(d); return { img: shot.img, ph: shot.ph || ((pdf ? 'PDF · ' : 'IMAGE · ') + d.label.toUpperCase() + ' · ' + name) }; })(),
+    preview: (() => { const shot = kycDocPreview(d); return { img: shot.img, open: shot.open || d.url || '', ph: shot.ph || ((pdf ? 'PDF · ' : 'IMAGE · ') + d.label.toUpperCase() + ' · ' + name) }; })(),
     fields: [kv('File', name + (d.size ? ' · ' + d.size : '')), kv('Customer', cu.name + (cu.business ? ' · ' + cu.business : '')), kv('Name on account', cu.name), kv('Country', cu.country), kv('ID type', k.idType), kv('Submitted', MBA.fmt(k.at)), kv('Status', kycWord(d.status)), kv('Note', d.note)],
     sections: [{ title: 'Check before verifying', items: (d.kind === 'selfie' ? ['Face matches the ID photo', 'ID held is the same document submitted', 'Not a screen photo or printout'] : d.kind === 'address' ? ['Dated within the last 3 months', 'Name matches the account', 'Address is complete and legible'] : d.kind === 'business' ? ['Registration or licence number visible', 'Business name matches the account', 'Not expired'] : ['All four corners visible, no glare', 'Name and date of birth legible', 'Not expired']).map(t => ({ t })) }],
     inputs: open && can && d.status !== 'flagged' ? [V.inp(c, 'docNote', 'What is wrong (if flagging)', '', true)] : [], actions: acts

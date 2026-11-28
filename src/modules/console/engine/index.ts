@@ -12,5 +12,6 @@ import './crud';
 import './v5';
 import './v6';
 import './liveBridge';
+import './catalogueLots';
 
 export { MBA, MBV } from './registry';

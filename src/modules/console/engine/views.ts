@@ -67,11 +67,12 @@ V.cell = (x?: any) => {
   if (x == null || typeof x !== 'object') x = { t: x == null ? '—' : x };
   const tone = x.tone === 'err' ? 'var(--errInk)' : x.tone === 'warn' ? 'var(--warnInk)' : x.tone === 'ok' ? 'var(--okInk)' : null;
   return {
-    text: x.t == null || x.t === '' ? '—' : String(x.t), sub: x.s || '',
-    style: x.btns && (x.t == null || x.t === '') ? 'display:none;' : x.pill ? V.pill(x.pill) : CELL.base + (x.id ? ' font-weight:800; color:var(--brandInk);' : '') + (x.b ? ' font-weight:800;' : '') + (x.mono ? " font-family:ui-monospace,Menlo,monospace; font-size:11.5px;" : '') + (tone ? ' color:' + tone + ';' : '') + (x.r ? ' text-align:right;' : ''),
+    text: x.check ? '' : (x.t == null || x.t === '' ? '—' : String(x.t)), sub: x.s || '',
+    style: x.check ? 'display:none;' : x.btns && (x.t == null || x.t === '') ? 'display:none;' : x.pill ? V.pill(x.pill) : CELL.base + (x.id ? ' font-weight:800; color:var(--brandInk);' : '') + (x.b ? ' font-weight:800;' : '') + (x.mono ? " font-family:ui-monospace,Menlo,monospace; font-size:11.5px;" : '') + (tone ? ' color:' + tone + ';' : '') + (x.r ? ' text-align:right;' : ''),
     subStyle: x.s ? CELL.sub + (x.r ? ' text-align:right;' : '') : 'display:none;',
     wrapStyle: 'display:flex; flex-direction:column; gap:2px; min-width:0;' + (x.r ? ' align-items:flex-end;' : ''),
-    hasBtns: !!(x.btns && x.btns.length), btns: (x.btns || []).map((b?: any) => ({ label: b.label, go: (e?: any) => { if (e && e.stopPropagation) e.stopPropagation(); b.go(); }, style: 'height:28px; padding:0 10px; border-radius:9px; border:1px solid ' + (b.danger ? 'var(--errBg)' : 'var(--line)') + '; background:' + (b.danger ? 'var(--errBg)' : 'var(--card)') + '; color:' + (b.danger ? 'var(--errInk)' : 'var(--ink)') + '; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap;' }))
+    hasBtns: !!(x.btns && x.btns.length), btns: (x.btns || []).map((b?: any) => ({ label: b.label, go: (e?: any) => { if (e && e.stopPropagation) e.stopPropagation(); b.go(); }, style: 'height:28px; padding:0 10px; border-radius:9px; border:1px solid ' + (b.danger ? 'var(--errBg)' : 'var(--line)') + '; background:' + (b.danger ? 'var(--errBg)' : 'var(--card)') + '; color:' + (b.danger ? 'var(--errInk)' : 'var(--ink)') + '; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap;' })),
+    check: !!x.check, checked: !!x.checked, toggle: x.toggle || (() => {}),
   };
 };
 V.table = (c?: any, id?: any, cols?: any, items?: any, row?: any, opt?: any) => {
@@ -85,13 +86,17 @@ V.table = (c?: any, id?: any, cols?: any, items?: any, row?: any, opt?: any) => 
   list = list.slice((cur - 1) * pageSize, cur * pageSize);
   const setPage = (n: number) => c.setState((st?: any) => ({ tablePage: Object.assign({}, st.tablePage, { [id]: n }) }));
   const grid = ' grid-template-columns:' + cols.map((k?: any) => k[1]).join(' ') + ';';
+  const headCheck = opt.headCheck;
   return {
     title: opt.title || '', hasTitle: !!opt.title, note: opt.note || '',
     head: 'display:grid; gap:12px; align-items:center; padding:11px 20px; background:var(--soft); border-bottom:1px solid var(--line); font-size:10px; font-weight:800; letter-spacing:1px; color:var(--ink3);' + grid,
-    cols: cols.map((k?: any, i?: any) => ({ label: k[0], arrow: k[2] ? (s.i === i ? (s.d > 0 ? ' ↑' : ' ↓') : ' ↕') : '', go: k[2] ? () => c.setState((st?: any) => { const cur = st.sort[id] || {}; return { sort: Object.assign({}, st.sort, { [id]: { i, d: cur.i === i ? -(cur.d || 1) : 1 } }) }; }) : () => {}, style: 'display:flex; align-items:center; gap:3px; padding:0; border:none; background:none; font:inherit; letter-spacing:inherit; text-align:left; color:' + (s.i === i ? 'var(--ink)' : 'inherit') + '; cursor:' + (k[2] ? 'pointer' : 'default') + ';' + (k[3] ? ' justify-content:flex-end;' : '') })),
+    cols: cols.map((k?: any, i?: any) => {
+      const check = i === 0 && !!headCheck;
+      return { label: check ? '' : k[0], arrow: check ? '' : (k[2] ? (s.i === i ? (s.d > 0 ? ' ↑' : ' ↓') : ' ↕') : ''), check, checked: !!(check && headCheck.checked), indeterminate: !!(check && headCheck.indeterminate), go: check ? () => headCheck.go() : k[2] ? () => c.setState((st?: any) => { const cur = st.sort[id] || {}; return { sort: Object.assign({}, st.sort, { [id]: { i, d: cur.i === i ? -(cur.d || 1) : 1 } }) }; }) : () => {}, style: 'display:flex; align-items:center; gap:3px; padding:0; border:none; background:none; font:inherit; letter-spacing:inherit; text-align:left; color:' + (s.i === i ? 'var(--ink)' : 'inherit') + '; cursor:' + (check || k[2] ? 'pointer' : 'default') + ';' + (k[3] ? ' justify-content:flex-end;' : '') };
+    }),
     rows: list.map((it?: any) => { const r = row(it); return { cells: r.cells.map(V.cell), go: r.go || (() => {}), style: 'display:grid; gap:12px; align-items:center; padding:12px 20px; border-bottom:1px solid var(--line2); cursor:' + (r.go ? 'pointer' : 'default') + '; transition:background .15s ease;' + (r.hl ? ' background:var(--hl);' : '') + grid }; }),
     empty: total === 0, emptyText: opt.empty || 'Nothing matches this filter or search.',
-    count: total + (total === 1 ? ' record' : ' records') + (pages > 1 ? ' · page ' + cur + ' of ' + pages : ''),
+    count: total + (total === 1 ? ' record' : ' records') + (pages > 1 ? ' · page ' + cur + ' of ' + pages : '') + (opt.countExtra || ''),
     hasPager: pages > 1,
     pagerPrev: () => { if (cur > 1) setPage(cur - 1); },
     pagerNext: () => { if (cur < pages) setPage(cur + 1); }

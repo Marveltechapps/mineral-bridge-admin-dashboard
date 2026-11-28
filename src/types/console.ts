@@ -106,7 +106,7 @@ export interface ConsoleController {
 }
 
 // ---------- shared pieces ----------
-export interface ActionVM { label: string; style: string; go: Go }
+export interface ActionVM { label: string; style: string; go: Go; disabled?: boolean }
 export interface ChoiceVM { label: string; style: string; go: Go; value?: string }
 
 export interface InputVM {
@@ -153,9 +153,12 @@ export interface ShellVM {
 // ---------- list pages ----------
 export interface KpiVM { label: string; value: string | number; sub: string; subStyle: string; style: string; go: Go }
 export interface TabVM { label: string; style: string; go: Go }
-export interface CellVM { text: string; sub: string; style: string; subStyle: string; wrapStyle: string; hasBtns: boolean; btns: ActionVM[] }
+export interface CellVM {
+  text: string; sub: string; style: string; subStyle: string; wrapStyle: string; hasBtns: boolean; btns: ActionVM[];
+  check?: boolean; checked?: boolean; toggle?: Go;
+}
 export interface RowVM { cells: CellVM[]; go: Go; style: string }
-export interface ColVM { label: string; arrow: string; go: Go; style: string }
+export interface ColVM { label: string; arrow: string; go: Go; style: string; check?: boolean; checked?: boolean; indeterminate?: boolean }
 export interface TableVM {
   title: string; hasTitle: boolean; head: string; cols: ColVM[]; rows: RowVM[];
   empty: boolean; emptyText: string; count: string;
@@ -207,11 +210,11 @@ export interface OrderDetailVM {
 // ---------- drawer ----------
 export interface DrawerItemVM {
   t: string; s: string; r: string; rStyle: string; go: Go; style: string;
-  hasImg: boolean; imgStyle: string; hasPh: boolean; phText: string; hasBtns: boolean; btns: ActionVM[];
+  hasImg: boolean; imgStyle: string; imgSrc: string; hasPh: boolean; phText: string; hasBtns: boolean; btns: ActionVM[];
 }
 export interface DrawerVM {
   open: boolean; key: string; pill: string; pillStyle: string; title: string; sub: string;
-  hasPreview: boolean; hasPreviewImg: boolean; previewStyle: string; hasPreviewPh: boolean; previewPh: string;
+  hasPreview: boolean; hasPreviewImg: boolean; previewStyle: string; previewSrc: string; previewHref: string; hasPreviewPh: boolean; previewPh: string;
   hasFields: boolean; fields: { k: string; v: string }[];
   hasText: boolean; text: string;
   sections: { title: string; items: DrawerItemVM[] }[];
